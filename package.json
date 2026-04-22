@@ -5,9 +5,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "sync": "node scripts/sync-from-notion.mjs",
     "scrape": "node scripts/scrape-covers.mjs",
     "build": "node scripts/build-site.mjs",
-    "all": "node scripts/scrape-covers.mjs && node scripts/build-site.mjs"
+    "all": "node scripts/sync-from-notion.mjs && node scripts/scrape-covers.mjs && node scripts/build-site.mjs"
   },
   "engines": {
     "node": ">=18"
