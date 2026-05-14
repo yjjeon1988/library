@@ -11,13 +11,13 @@ const escapeHtml = (s = '') => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-const paletteColors = ['#8b5a3c', '#3c5c8b', '#5c8b3c', '#8b3c5c', '#5c3c8b', '#8b8b3c', '#3c8b8b', '#8b3c3c'];
+const paletteColors = ['#5c4636', '#6b4f3a', '#4a3a2e', '#5e4838', '#553f30', '#6a4a36', '#4e3c30', '#604838'];
 
 function fallbackCoverSvg(title = '', author = '', idx = 0) {
   const color = paletteColors[idx % paletteColors.length];
   const t = escapeHtml(title.slice(0, 18));
   const a = escapeHtml(author.slice(0, 20));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect fill="${color}" width="200" height="300"/><text x="100" y="140" text-anchor="middle" fill="white" font-family="serif" font-size="14" font-weight="bold">${t}</text><text x="100" y="170" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-family="sans-serif" font-size="10">${a}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect fill="${color}" width="200" height="300"/><text x="100" y="140" text-anchor="middle" fill="rgba(245,232,208,0.92)" font-family="serif" font-size="14" font-weight="bold">${t}</text><text x="100" y="170" text-anchor="middle" fill="rgba(245,232,208,0.55)" font-family="sans-serif" font-size="10">${a}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
@@ -150,17 +150,20 @@ async function main() {
 <style>
   :root {
     --bg-deep: #3d2514;
-    --bg-shelf-dark: #2b1810;
-    --bg-shelf-shadow: #0d0604;
+    --bg-card: #2b1810;
     --text-primary: #f5e8d0;   /* AAA on dark bg */
-    --text-secondary: #d4b78a; /* ~7:1 */
-    --text-muted: #c9a876;     /* 6.1:1, AA */
+    --text-muted: #d4b78a;     /* ~7:1, AA large/AAA */
     --text-dim: #b59770;       /* 5.0:1, AA */
-    --accent-dim: #8a6d4a;     /* decorative only */
+    --line: rgba(201, 168, 118, 0.14);
+    --line-strong: rgba(201, 168, 118, 0.22);
+    --topbar-h: 56px;
+  }
+  @media (max-width: 760px) {
+    :root { --topbar-h: 104px; }
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+  html { scroll-behavior: smooth; scroll-padding-top: calc(var(--topbar-h) + 24px); }
   body {
     font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
     background:
@@ -241,6 +244,8 @@ async function main() {
     scrollbar-width: none;
     display: flex;
     min-width: 0;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%);
   }
   .nav-wrap::-webkit-scrollbar { display: none; }
   .nav-group {
@@ -250,7 +255,7 @@ async function main() {
   }
 
   .nav-link {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
     text-decoration: none;
     white-space: nowrap;
@@ -272,7 +277,7 @@ async function main() {
   }
   .nav-link.active .nav-count { color: var(--bg-deep); opacity: 0.7; }
   .nav-count {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
     font-variant-numeric: tabular-nums;
   }
@@ -310,19 +315,27 @@ async function main() {
     text-align: center;
   }
   .stat-primary .stat-num {
-    font-size: 52px;
+    font-size: 56px;
     font-weight: 800;
     color: var(--text-primary);
     line-height: 1;
     display: block;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .stat-primary .stat-unit {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 4px;
+    letter-spacing: 0;
   }
   .stat-primary .stat-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
-    letter-spacing: 0.15em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    margin-top: 10px;
+    margin-top: 14px;
     display: block;
     font-family: 'Noto Sans KR', sans-serif;
     font-weight: 500;
@@ -338,18 +351,25 @@ async function main() {
   }
   .stat-minor { text-align: center; }
   .stat-minor .stat-num {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--text-primary);
     display: block;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .stat-minor .stat-unit {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 2px;
   }
   .stat-minor .stat-label {
     font-size: 11px;
     color: var(--text-dim);
-    letter-spacing: 0.08em;
-    margin-top: 8px;
+    letter-spacing: 0.1em;
+    margin-top: 10px;
     display: block;
     font-family: 'Noto Sans KR', sans-serif;
     font-weight: 400;
@@ -362,15 +382,18 @@ async function main() {
     padding: 32px 32px 80px;
   }
   .shelf {
-    margin-bottom: 80px;
-    scroll-margin-top: 96px;
+    margin-bottom: 64px;
+    scroll-margin-top: calc(var(--topbar-h) + 24px);
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--line);
   }
+  .shelf:last-child { border-bottom: none; }
   .shelf-header {
     display: flex;
     align-items: baseline;
     gap: 16px;
-    margin-bottom: 22px;
-    padding: 0 12px;
+    margin-bottom: 28px;
+    padding: 0 4px;
     flex-wrap: wrap;
   }
   .shelf-title {
@@ -398,66 +421,15 @@ async function main() {
   .shelf-sub::before {
     content: '·';
     margin-right: 10px;
-    color: var(--accent-dim);
+    color: var(--text-dim);
+    opacity: 0.6;
   }
 
   .books {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-    gap: 32px 24px;
-    padding: 26px 22px 48px;
-    position: relative;
-    border-radius: 4px;
-    background:
-      linear-gradient(180deg,
-        transparent 0%,
-        transparent calc(100% - 32px),
-        #3a2314 calc(100% - 32px),
-        #2b1810 calc(100% - 18px),
-        #1a0e08 calc(100% - 8px),
-        var(--bg-shelf-shadow) 100%);
-    box-shadow:
-      0 18px 32px rgba(0,0,0,0.5),
-      inset 0 1px 0 rgba(255,255,255,0.05);
-  }
-  /* Wood grain on the plank bottom */
-  .books::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 8px;
-    height: 22px;
-    background:
-      repeating-linear-gradient(
-        90deg,
-        rgba(0,0,0,0.08) 0,
-        rgba(0,0,0,0.08) 1px,
-        transparent 1px,
-        transparent 7px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        rgba(255, 230, 180, 0.015) 0,
-        rgba(255, 230, 180, 0.015) 2px,
-        transparent 2px,
-        transparent 11px
-      );
-    pointer-events: none;
-    opacity: 0.7;
-  }
-  /* Hard shadow directly under the plank */
-  .books::after {
-    content: '';
-    position: absolute;
-    left: 4%;
-    right: 4%;
-    bottom: -6px;
-    height: 12px;
-    background: radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, transparent 70%);
-    filter: blur(2px);
-    pointer-events: none;
-    z-index: -1;
+    gap: 36px 24px;
+    padding: 8px 4px;
   }
 
   /* ============ BOOK CARD ============ */
@@ -475,7 +447,7 @@ async function main() {
     aspect-ratio: 2/3;
     position: relative;
     overflow: hidden;
-    background: var(--bg-shelf-dark);
+    background: var(--bg-card);
     border-radius: 2px;
     box-shadow:
       0 10px 20px rgba(0,0,0,0.55),
@@ -501,7 +473,7 @@ async function main() {
     padding: 0 2px;
   }
   .book-title {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     line-height: 1.4;
     color: var(--text-primary);
@@ -512,19 +484,19 @@ async function main() {
     letter-spacing: -0.005em;
   }
   .book-author {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
-    margin-top: 5px;
+    margin-top: 6px;
     display: -webkit-box;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
   .book-date {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-dim);
-    margin-top: 3px;
+    margin-top: 4px;
     font-family: 'Nanum Myeongjo', serif;
     letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
@@ -591,21 +563,23 @@ async function main() {
     .hero { padding: 56px 20px 28px; }
     .hero h1 { font-size: 36px; }
     .hero-stats { gap: 20px; margin-top: 28px; }
-    .stat-primary .stat-num { font-size: 40px; }
-    .stat-minor .stat-num { font-size: 20px; }
+    .stat-primary .stat-num { font-size: 44px; }
+    .stat-primary .stat-unit { font-size: 20px; }
+    .stat-minor .stat-num { font-size: 22px; }
+    .stat-minor .stat-unit { font-size: 12px; }
     .hero-divider { height: 40px; }
     .hero-secondary { gap: 20px; }
     .shelves { padding: 24px 16px 60px; }
     .shelf { margin-bottom: 56px; }
     .shelf-title { font-size: 22px; }
     .books {
-      grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-      gap: 24px 14px;
-      padding: 18px 14px 36px;
+      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+      gap: 28px 16px;
+      padding: 4px 0;
     }
     .book-info { margin-top: 10px; }
-    .book-title { font-size: 12px; }
-    .book-author, .book-date { font-size: 10.5px; }
+    .book-title { font-size: 13px; }
+    .book-author, .book-date { font-size: 11.5px; }
     .back-to-top { right: 16px; bottom: 16px; width: 44px; height: 44px; }
   }
 </style>
@@ -630,17 +604,17 @@ async function main() {
     <p>시대정신 및 철학사상 탐구 &amp; 나만의 가치 만들기</p>
     <div class="hero-stats">
       <div class="stat-primary">
-        <span class="stat-num">${totalBooks}</span>
-        <span class="stat-label">권</span>
+        <span class="stat-num">${totalBooks}<span class="stat-unit">권</span></span>
+        <span class="stat-label">완독</span>
       </div>
       <div class="hero-divider" aria-hidden="true"></div>
       <div class="hero-secondary">
         <div class="stat-minor">
-          <span class="stat-num">${categoryEntries.length}</span>
+          <span class="stat-num">${categoryEntries.length}<span class="stat-unit">개</span></span>
           <span class="stat-label">카테고리</span>
         </div>
         <div class="stat-minor">
-          <span class="stat-num">${yearEntries.filter(([y]) => y !== '미기록').length}</span>
+          <span class="stat-num">${yearEntries.filter(([y]) => y !== '미기록').length}<span class="stat-unit">개</span></span>
           <span class="stat-label">연도</span>
         </div>
       </div>
@@ -703,7 +677,7 @@ ${yearShelvesHtml}
           }
         }
       }
-    }, { rootMargin: '-96px 0px -60% 0px', threshold: 0 });
+    }, { rootMargin: '-' + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) + 24) + 'px 0px -60% 0px', threshold: 0 });
     document.querySelectorAll('.shelf').forEach(s => spy.observe(s));
 
     // Back to top
