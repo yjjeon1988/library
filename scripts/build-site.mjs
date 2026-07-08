@@ -229,32 +229,57 @@ ${allBooksSorted.map(renderBook).join('\n')}
     flex-shrink: 0;
   }
 
+  .view-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    flex-shrink: 0;
+  }
+  .view-switch-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
   .view-toggle {
     display: flex;
-    gap: 0;
-    background: rgba(0,0,0,0.35);
-    border-radius: 20px;
+    gap: 2px;
+    background: rgba(0,0,0,0.38);
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
     padding: 3px;
     flex-shrink: 0;
   }
   .view-toggle button {
-    padding: 7px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 15px;
     border: none;
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
     border-radius: 18px;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 600;
     font-family: inherit;
-    transition: all 0.2s;
+    white-space: nowrap;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
   }
-  .view-toggle button:hover { color: var(--text-primary); }
+  .view-toggle button svg {
+    width: 15px;
+    height: 15px;
+    stroke-width: 2;
+    opacity: 0.85;
+  }
+  .view-toggle button:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
   .view-toggle button.active {
     background: var(--text-primary);
     color: var(--bg-deep);
-    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
   }
+  .view-toggle button.active svg { opacity: 1; }
 
   .nav-wrap {
     flex: 1;
@@ -530,9 +555,13 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
 
   /* ============ VIEW SWITCHING ============ */
-  #view-all, #view-category { display: none; }
+  #view-all, #view-category, #view-year { display: none; }
   body[data-view="all"] #view-all { display: block; }
   body[data-view="category"] #view-category { display: block; }
+  body[data-view="year"] #view-year { display: block; }
+  #nav-category, #nav-year { display: none; }
+  body[data-view="category"] #nav-category { display: flex; }
+  body[data-view="year"] #nav-year { display: flex; }
   /* 전체 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
   body[data-view="all"] .nav-wrap { display: none; }
 
@@ -607,12 +636,26 @@ ${allBooksSorted.map(renderBook).join('\n')}
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">📚 나의 서재</div>
-      <div class="view-toggle" role="tablist">
-        <button data-view="all" class="active" role="tab" aria-selected="true">전체</button>
-        <button data-view="category" role="tab" aria-selected="false">카테고리</button>
+      <div class="view-switch">
+        <span class="view-switch-label">보기</span>
+        <div class="view-toggle" role="tablist">
+          <button data-view="all" class="active" role="tab" aria-selected="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            전체
+          </button>
+          <button data-view="category" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            카테고리
+          </button>
+          <button data-view="year" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            연도
+          </button>
+        </div>
       </div>
       <nav class="nav-wrap" aria-label="섹션 바로가기">
         <div class="nav-group" id="nav-category">${categoryNavHtml}</div>
+        <div class="nav-group" id="nav-year">${yearNavHtml}</div>
       </nav>
     </div>
   </header>
@@ -647,6 +690,10 @@ ${allShelfHtml}
 ${categoryShelvesHtml}
   </main>
 
+  <main class="shelves" id="view-year">
+${yearShelvesHtml}
+  </main>
+
   <footer>Built from Notion · ${new Date().toISOString().slice(0, 10)}</footer>
 
   <button class="back-to-top" id="backToTop" aria-label="맨 위로" title="맨 위로">
@@ -678,8 +725,9 @@ ${categoryShelvesHtml}
         if (!entry.isIntersecting) continue;
         const id = entry.target.id;
         const activeView = document.body.dataset.view;
-        if (activeView !== 'category') continue;
-        const container = document.querySelector('#nav-category');
+        if (activeView === 'all') continue;
+        const scope = activeView === 'category' ? '#nav-category' : '#nav-year';
+        const container = document.querySelector(scope);
         if (!container) continue;
         const link = container.querySelector(\`[data-target="\${CSS.escape(id)}"]\`);
         if (!link) continue;
