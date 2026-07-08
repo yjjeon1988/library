@@ -11,6 +11,14 @@ const escapeHtml = (s = '') => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+// 분류(구분) 통합 매핑. 노션 원본 값과 무관하게 빌드 시 아래 규칙으로 묶는다.
+// 노션 DB를 건드리지 않아도 동기화 이후 항상 통합 상태가 유지된다.
+const CATEGORY_MAP = {
+  '인문': '인문교양',
+  '사회과학': '인문교양',
+};
+const normalizeCategory = (cat) => CATEGORY_MAP[cat] || cat;
+
 const paletteColors = ['#5c4636', '#6b4f3a', '#4a3a2e', '#5e4838', '#553f30', '#6a4a36', '#4e3c30', '#604838'];
 
 function fallbackCoverSvg(title = '', author = '', idx = 0) {
@@ -88,7 +96,7 @@ async function main() {
 
   const byCategory = new Map();
   for (const b of books) {
-    const cat = b['구분'] || b['Category'] || '기타';
+    const cat = normalizeCategory(b['구분'] || b['Category'] || '기타');
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat).push(b);
   }
@@ -124,7 +132,7 @@ async function main() {
     const booksHtml = bs.map(renderBook).join('\n');
     const label = yr === '미기록' ? '완독일 미기록' : `${yr}년`;
     const catCount = {};
-    for (const b of bs) { const c = b['구분'] || '기타'; catCount[c] = (catCount[c] || 0) + 1; }
+    for (const b of bs) { const c = normalizeCategory(b['구분'] || '기타'); catCount[c] = (catCount[c] || 0) + 1; }
     const topCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, n]) => `${c} ${n}`).join(' · ');
     return renderShelf(`yr-${yr}`, label, bs.length, booksHtml, topCats);
   }).join('\n\n');
