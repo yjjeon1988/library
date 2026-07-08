@@ -123,6 +123,16 @@ async function main() {
 
   const totalBooks = books.length;
 
+  // 전체 뷰: 카테고리 구분 없이 완독일 최신순으로 나열
+  const allBooksSorted = [...books].sort(
+    (a, b) => (parseDateInfo(b['완독일'])?.ts ?? 0) - (parseDateInfo(a['완독일'])?.ts ?? 0)
+  );
+  const allShelfHtml = `    <section class="shelf" id="all-books">
+      <div class="books">
+${allBooksSorted.map(renderBook).join('\n')}
+      </div>
+    </section>`;
+
   const categoryShelvesHtml = categoryEntries.map(([cat, bs]) => {
     const booksHtml = bs.map(renderBook).join('\n');
     return renderShelf(`cat-${encodeURIComponent(cat)}`, cat, bs.length, booksHtml);
@@ -520,10 +530,11 @@ async function main() {
   }
 
   /* ============ VIEW SWITCHING ============ */
-  body[data-view="category"] #view-year,
-  body[data-view="category"] #nav-year { display: none; }
-  body[data-view="year"] #view-category,
-  body[data-view="year"] #nav-category { display: none; }
+  #view-all, #view-category { display: none; }
+  body[data-view="all"] #view-all { display: block; }
+  body[data-view="category"] #view-category { display: block; }
+  /* 전체 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
+  body[data-view="all"] .nav-wrap { display: none; }
 
   /* ============ BACK TO TOP ============ */
   .back-to-top {
@@ -592,17 +603,16 @@ async function main() {
   }
 </style>
 </head>
-<body data-view="category">
+<body data-view="all">
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">📚 나의 서재</div>
       <div class="view-toggle" role="tablist">
-        <button data-view="category" class="active" role="tab" aria-selected="true">카테고리</button>
-        <button data-view="year" role="tab" aria-selected="false">연도</button>
+        <button data-view="all" class="active" role="tab" aria-selected="true">전체</button>
+        <button data-view="category" role="tab" aria-selected="false">카테고리</button>
       </div>
       <nav class="nav-wrap" aria-label="섹션 바로가기">
         <div class="nav-group" id="nav-category">${categoryNavHtml}</div>
-        <div class="nav-group" id="nav-year">${yearNavHtml}</div>
       </nav>
     </div>
   </header>
@@ -629,12 +639,12 @@ async function main() {
     </div>
   </section>
 
-  <main class="shelves" id="view-category">
-${categoryShelvesHtml}
+  <main class="shelves" id="view-all">
+${allShelfHtml}
   </main>
 
-  <main class="shelves" id="view-year">
-${yearShelvesHtml}
+  <main class="shelves" id="view-category">
+${categoryShelvesHtml}
   </main>
 
   <footer>Built from Notion · ${new Date().toISOString().slice(0, 10)}</footer>
@@ -668,8 +678,8 @@ ${yearShelvesHtml}
         if (!entry.isIntersecting) continue;
         const id = entry.target.id;
         const activeView = document.body.dataset.view;
-        const scope = activeView === 'category' ? '#nav-category' : '#nav-year';
-        const container = document.querySelector(scope);
+        if (activeView !== 'category') continue;
+        const container = document.querySelector('#nav-category');
         if (!container) continue;
         const link = container.querySelector(\`[data-target="\${CSS.escape(id)}"]\`);
         if (!link) continue;
