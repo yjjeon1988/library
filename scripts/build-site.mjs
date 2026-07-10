@@ -55,10 +55,10 @@ function trustedAladin(key, title) {
   return suspect ? {} : al;
 }
 
-// 평점 배지: 0보다 큰 평점이 있을 때만. rating 은 0~10 스케일.
-function ratingBadge(rating) {
+// 평점: 제목 앞에 붙는 인라인 별점. 0보다 큰 평점이 있을 때만. rating 은 0~10 스케일.
+function ratingInline(rating) {
   if (!rating || rating <= 0) return '';
-  return `<div class="rating-badge" aria-label="평점 ${rating}점"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z"/></svg><span>${rating.toFixed(1)}</span></div>`;
+  return `<span class="rating-inline" aria-label="평점 ${rating}점">★${rating.toFixed(1)}</span>`;
 }
 
 function renderBook(b, idx) {
@@ -78,12 +78,10 @@ function renderBook(b, idx) {
   const tooltip = `${escapeHtml(title)}${author ? ` — ${escapeHtml(author)}` : ''}${date ? ` · ${date.formatted}` : ''}`;
   return `      <article class="book" role="button" tabindex="0" data-key="${escapeHtml(key)}" title="${tooltip}" aria-label="${escapeHtml(title)} 상세 보기">
         <div class="book-cover-wrap">
-          ${ratingBadge(rating)}
-          ${hasInsight ? '<div class="insight-dot" aria-hidden="true" title="핵심 인사이트 있음"></div>' : ''}
           <img class="book-cover" src="${escapeHtml(coverPath)}" alt="${escapeHtml(title)}" width="200" height="300" loading="lazy" onerror="this.onerror=null;this.src='${fallback}';" />
         </div>
         <div class="book-info">
-          <div class="book-title">${escapeHtml(title)}</div>
+          <div class="book-title">${ratingInline(rating)}${escapeHtml(title)}${hasInsight ? '<span class="insight-dot" aria-hidden="true" title="핵심 인사이트 있음"></span>' : ''}</div>
           <div class="book-author">${escapeHtml(author)}</div>
           ${dateHtml}
         </div>
@@ -664,40 +662,25 @@ ${allBooksSorted.map(renderBook).join('\n')}
     height: 20px;
   }
 
-  /* ============ RATING BADGE / INSIGHT DOT ============ */
-  .rating-badge {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 7px 3px 5px;
-    border-radius: 12px;
-    background: rgba(20, 12, 6, 0.82);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    color: #ffd873;
-    font-size: 11.5px;
+  /* ============ RATING (제목 앞) / INSIGHT DOT (제목 뒤) ============ */
+  .rating-inline {
+    color: #f0b84a;
     font-weight: 700;
-    line-height: 1;
+    font-size: 12px;
+    margin-right: 5px;
+    letter-spacing: -0.01em;
     font-variant-numeric: tabular-nums;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    pointer-events: none;
+    white-space: nowrap;
   }
-  .rating-badge svg { width: 11px; height: 11px; }
   .insight-dot {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 2;
-    width: 9px;
-    height: 9px;
+    display: inline-block;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: #7fd39b;
-    box-shadow: 0 0 0 2px rgba(20,12,6,0.6), 0 0 8px rgba(127,211,155,0.7);
-    pointer-events: none;
+    margin-left: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px rgba(127, 211, 155, 0.55);
   }
 
   /* ============ MODAL ============ */
@@ -895,7 +878,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
     }
     .modal-title { font-size: 20px; }
     .modal-cover { width: 72px; }
-    .rating-badge { font-size: 10.5px; padding: 2px 6px 2px 4px; }
+    .rating-inline { font-size: 11.5px; }
   }
 </style>
 </head>
