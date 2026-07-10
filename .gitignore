@@ -6,3 +6,4 @@ covers/_failures.json
 bookshelf-preview.html
 scrape.log
 *.log
+.gstack/

@@ -1,11 +1,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { parseCSV, extractYes24ProductId } from './lib-csv.mjs';
+import { parseCSV, extractYes24ProductId, bookKey, isSuspectMatch } from './lib-csv.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CSV_PATH = path.join(ROOT, 'data', 'books.csv');
+const ALADIN_PATH = path.join(ROOT, 'data', 'aladin.json');
+const INSIGHTS_PATH = path.join(ROOT, 'data', 'insights.json');
 const COVERS_DIR = path.join(ROOT, 'covers');
 const DIST_DIR = path.join(ROOT, 'dist');
+
+// main() 에서 채운다. renderBook 이 참조.
+let ALADIN = {};
+let INSIGHTS = {};
 
 const escapeHtml = (s = '') => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -41,6 +47,20 @@ function parseDateInfo(s) {
   };
 }
 
+// 오매칭이면 평점·소개를 신뢰하지 않는다. 신뢰 가능한 알라딘 항목만 반환.
+function trustedAladin(key, title) {
+  const al = ALADIN[key];
+  if (!al || al.ok === false) return {};
+  const suspect = al.suspect ?? isSuspectMatch(title, al.aladinTitle);
+  return suspect ? {} : al;
+}
+
+// 평점 배지: 0보다 큰 평점이 있을 때만. rating 은 0~10 스케일.
+function ratingBadge(rating) {
+  if (!rating || rating <= 0) return '';
+  return `<div class="rating-badge" aria-label="평점 ${rating}점"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z"/></svg><span>${rating.toFixed(1)}</span></div>`;
+}
+
 function renderBook(b, idx) {
   const title = b['도서제목'] || b['Title'] || '';
   const author = b['저자'] || b['Author'] || '';
@@ -50,11 +70,16 @@ function renderBook(b, idx) {
   const pid = extractYes24ProductId(link);
   const coverPath = pid ? `covers/${pid}.jpg` : fallbackCoverSvg(title, author, idx);
   const fallback = fallbackCoverSvg(title, author, idx);
-  const href = link ? escapeHtml(link) : '#';
+  const key = bookKey(b);
+  const al = trustedAladin(key, title);
+  const rating = al.ratingScore ?? (al.reviewRank != null ? al.reviewRank / 2 : null);
+  const hasInsight = !!(INSIGHTS[key] && (INSIGHTS[key].oneLine || (INSIGHTS[key].insights || []).length));
   const dateHtml = date ? `<div class="book-date">${date.formatted}</div>` : '';
   const tooltip = `${escapeHtml(title)}${author ? ` — ${escapeHtml(author)}` : ''}${date ? ` · ${date.formatted}` : ''}`;
-  return `      <a class="book" href="${href}" target="_blank" rel="noopener" title="${tooltip}">
+  return `      <article class="book" role="button" tabindex="0" data-key="${escapeHtml(key)}" title="${tooltip}" aria-label="${escapeHtml(title)} 상세 보기">
         <div class="book-cover-wrap">
+          ${ratingBadge(rating)}
+          ${hasInsight ? '<div class="insight-dot" aria-hidden="true" title="핵심 인사이트 있음"></div>' : ''}
           <img class="book-cover" src="${escapeHtml(coverPath)}" alt="${escapeHtml(title)}" width="200" height="300" loading="lazy" onerror="this.onerror=null;this.src='${fallback}';" />
         </div>
         <div class="book-info">
@@ -62,7 +87,38 @@ function renderBook(b, idx) {
           <div class="book-author">${escapeHtml(author)}</div>
           ${dateHtml}
         </div>
-      </a>`;
+      </article>`;
+}
+
+// 모달 채움용 데이터. 키 → 표시 정보.
+function buildBookData(books) {
+  const data = {};
+  for (const b of books) {
+    const key = bookKey(b);
+    if (data[key]) continue;
+    const title = b['도서제목'] || b['Title'] || '';
+    const author = b['저자'] || b['Author'] || '';
+    const link = b['링크'] || b['Link'] || '';
+    const date = parseDateInfo(b['완독일']);
+    const pid = extractYes24ProductId(link);
+    const al = trustedAladin(key, title);
+    const ins = INSIGHTS[key] || {};
+    const rating = al.ratingScore ?? (al.reviewRank != null ? al.reviewRank / 2 : null);
+    data[key] = {
+      title, author,
+      category: b['구분'] || b['Category'] || '',
+      date: date ? `${date.year}.${String(date.month).padStart(2, '0')}.${String(date.day).padStart(2, '0')}` : '',
+      cover: pid ? `covers/${pid}.jpg` : '',
+      rating: rating ?? null,
+      ratingCount: al.ratingCount ?? null,
+      oneLine: ins.oneLine || '',
+      insights: ins.insights || [],
+      description: al.description || '',
+      yes24: link || '',
+      aladin: al.aladinLink || '',
+    };
+  }
+  return data;
 }
 
 function renderShelf(id, heading, count, booksHtml, subtitle = '') {
@@ -83,6 +139,9 @@ ${booksHtml}
 async function main() {
   const text = await fs.readFile(CSV_PATH, 'utf-8');
   const books = parseCSV(text);
+
+  ALADIN = await fs.readFile(ALADIN_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
+  INSIGHTS = await fs.readFile(INSIGHTS_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
 
   await fs.rm(DIST_DIR, { recursive: true, force: true });
   await fs.mkdir(path.join(DIST_DIR, 'covers'), { recursive: true });
@@ -122,6 +181,8 @@ async function main() {
   });
 
   const totalBooks = books.length;
+  const bookData = buildBookData(books);
+  const insightCount = Object.values(bookData).filter(d => d.oneLine || d.insights.length).length;
 
   // 전체 뷰: 카테고리 구분 없이 완독일 최신순으로 나열
   const allBooksSorted = [...books].sort(
@@ -603,6 +664,202 @@ ${allBooksSorted.map(renderBook).join('\n')}
     height: 20px;
   }
 
+  /* ============ RATING BADGE / INSIGHT DOT ============ */
+  .rating-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 7px 3px 5px;
+    border-radius: 12px;
+    background: rgba(20, 12, 6, 0.82);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: #ffd873;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+  .rating-badge svg { width: 11px; height: 11px; }
+  .insight-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #7fd39b;
+    box-shadow: 0 0 0 2px rgba(20,12,6,0.6), 0 0 8px rgba(127,211,155,0.7);
+    pointer-events: none;
+  }
+
+  /* ============ MODAL ============ */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10, 6, 3, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    position: relative;
+    width: 100%;
+    max-width: 620px;
+    max-height: min(88vh, 760px);
+    overflow-y: auto;
+    background: linear-gradient(180deg, #34200f, #2a1a0d);
+    border: 1px solid rgba(201, 168, 118, 0.22);
+    border-radius: 16px;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.6);
+    padding: 28px 30px 30px;
+    transform: translateY(14px) scale(0.98);
+    transition: transform 0.22s ease;
+  }
+  .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+  .modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.32);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .modal-close:hover { background: rgba(0,0,0,0.5); color: var(--text-primary); }
+  .modal-close svg { width: 18px; height: 18px; }
+  .modal-head { display: flex; gap: 18px; padding-right: 34px; }
+  .modal-cover {
+    width: 88px;
+    aspect-ratio: 2/3;
+    flex-shrink: 0;
+    border-radius: 3px;
+    object-fit: cover;
+    background: var(--bg-card);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.5);
+  }
+  .modal-headtext { min-width: 0; }
+  .modal-title {
+    font-family: 'Nanum Myeongjo', serif;
+    font-size: 23px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .modal-author { color: var(--text-muted); font-size: 14px; margin-top: 7px; }
+  .modal-metarow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .modal-rating { display: inline-flex; align-items: center; gap: 4px; color: #ffce6a; font-weight: 700; }
+  .modal-rating svg { width: 14px; height: 14px; }
+  .modal-chip {
+    padding: 3px 9px;
+    border-radius: 11px;
+    background: rgba(201,168,118,0.12);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+
+  .modal-section { margin-top: 24px; }
+  .modal-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .modal-oneline {
+    font-family: 'Nanum Myeongjo', serif;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--text-primary);
+    padding: 14px 16px;
+    background: rgba(127,211,155,0.08);
+    border-left: 3px solid #7fd39b;
+    border-radius: 0 8px 8px 0;
+  }
+  .modal-insights { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .modal-insights li {
+    position: relative;
+    padding-left: 24px;
+    font-size: 14.5px;
+    line-height: 1.62;
+    color: var(--text-primary);
+  }
+  .modal-insights li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 9px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+  .modal-desc {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+  .modal-empty {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.18);
+    border-radius: 8px;
+  }
+  .modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .modal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .modal-btn:hover { transform: translateY(-1px); }
+  .modal-btn.primary { background: var(--text-primary); color: var(--bg-deep); }
+  .modal-btn.secondary { background: rgba(201,168,118,0.14); color: var(--text-primary); }
+  .modal-btn svg { width: 15px; height: 15px; }
+
   /* ============ RESPONSIVE ============ */
   @media (max-width: 760px) {
     .topbar-inner { gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
@@ -629,6 +886,16 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .book-title { font-size: 13px; }
     .book-author, .book-date { font-size: 11.5px; }
     .back-to-top { right: 16px; bottom: 16px; width: 44px; height: 44px; }
+    .modal-backdrop { padding: 0; align-items: flex-end; }
+    .modal {
+      max-width: 100%;
+      max-height: 92vh;
+      border-radius: 18px 18px 0 0;
+      padding: 24px 20px 28px;
+    }
+    .modal-title { font-size: 20px; }
+    .modal-cover { width: 72px; }
+    .rating-badge { font-size: 10.5px; padding: 2px 6px 2px 4px; }
   }
 </style>
 </head>
@@ -696,6 +963,24 @@ ${yearShelvesHtml}
 
   <footer>Built from Notion · ${new Date().toISOString().slice(0, 10)}</footer>
 
+  <div class="modal-backdrop" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal" id="modalBody">
+      <button class="modal-close" id="modalClose" aria-label="닫기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="modal-head">
+        <img class="modal-cover" id="modalCover" alt="" width="88" height="132" />
+        <div class="modal-headtext">
+          <div class="modal-title" id="modalTitle"></div>
+          <div class="modal-author" id="modalAuthor"></div>
+          <div class="modal-metarow" id="modalMeta"></div>
+        </div>
+      </div>
+      <div id="modalContent"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+
   <button class="back-to-top" id="backToTop" aria-label="맨 위로" title="맨 위로">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 19V5"/>
@@ -704,6 +989,94 @@ ${yearShelvesHtml}
   </button>
 
   <script>
+    window.BOOK_DATA = ${JSON.stringify(bookData).replace(/</g, '\\u003c')};
+  </script>
+  <script>
+    // ============ BOOK MODAL ============
+    (function () {
+      const backdrop = document.getElementById('bookModal');
+      const elCover = document.getElementById('modalCover');
+      const elTitle = document.getElementById('modalTitle');
+      const elAuthor = document.getElementById('modalAuthor');
+      const elMeta = document.getElementById('modalMeta');
+      const elContent = document.getElementById('modalContent');
+      const elActions = document.getElementById('modalActions');
+      let lastFocus = null;
+
+      const esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const star = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z"/></svg>';
+
+      function fill(d) {
+        elTitle.textContent = d.title || '';
+        elAuthor.textContent = d.author || '';
+        if (d.cover) { elCover.src = d.cover; elCover.style.display = ''; elCover.alt = d.title || ''; }
+        else { elCover.removeAttribute('src'); elCover.style.display = 'none'; }
+
+        const meta = [];
+        if (d.rating) meta.push('<span class="modal-rating">' + star + d.rating.toFixed(1) +
+          (d.ratingCount ? ' <span style="color:var(--text-dim);font-weight:500">· 리뷰 ' + d.ratingCount + '</span>' : '') + '</span>');
+        if (d.category) meta.push('<span class="modal-chip">' + esc(d.category) + '</span>');
+        if (d.date) meta.push('<span>' + esc(d.date) + ' 완독</span>');
+        elMeta.innerHTML = meta.join('');
+
+        let html = '';
+        if (d.oneLine) {
+          html += '<div class="modal-section"><div class="modal-section-label">한 줄 요약</div>' +
+            '<div class="modal-oneline">' + esc(d.oneLine) + '</div></div>';
+        }
+        if (d.insights && d.insights.length) {
+          html += '<div class="modal-section"><div class="modal-section-label">핵심 인사이트</div><ul class="modal-insights">' +
+            d.insights.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
+        }
+        if (!d.oneLine && (!d.insights || !d.insights.length)) {
+          html += '<div class="modal-section"><div class="modal-empty">아직 이 책의 핵심 인사이트가 정리되지 않았어요.' +
+            (d.description ? ' 아래 책 소개를 참고하세요.' : '') + '</div></div>';
+        }
+        if (d.description) {
+          html += '<div class="modal-section"><div class="modal-section-label">책 소개</div>' +
+            '<div class="modal-desc">' + esc(d.description) + '</div></div>';
+        }
+        elContent.innerHTML = html;
+
+        const acts = [];
+        if (d.yes24) acts.push('<a class="modal-btn primary" href="' + esc(d.yes24) + '" target="_blank" rel="noopener">yes24에서 보기</a>');
+        if (d.aladin) acts.push('<a class="modal-btn secondary" href="' + esc(d.aladin) + '" target="_blank" rel="noopener">알라딘에서 보기</a>');
+        elActions.innerHTML = acts.join('');
+      }
+
+      function open(key) {
+        const d = window.BOOK_DATA[key];
+        if (!d) return;
+        lastFocus = document.activeElement;
+        fill(d);
+        backdrop.hidden = false;
+        requestAnimationFrame(() => backdrop.classList.add('open'));
+        document.body.style.overflow = 'hidden';
+        document.getElementById('modalClose').focus();
+      }
+      function close() {
+        backdrop.classList.remove('open');
+        document.body.style.overflow = '';
+        setTimeout(() => { backdrop.hidden = true; }, 200);
+        if (lastFocus) lastFocus.focus();
+      }
+
+      document.addEventListener('click', (e) => {
+        const card = e.target.closest('.book');
+        if (card && card.dataset.key) { open(card.dataset.key); return; }
+        if (e.target === backdrop || e.target.closest('#modalClose')) close();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !backdrop.hidden) close();
+        const card = e.target.closest && e.target.closest('.book');
+        if (card && card.dataset.key && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault(); open(card.dataset.key);
+        }
+      });
+    })();
+
     // View toggle
     document.querySelectorAll('.view-toggle button').forEach(btn => {
       btn.addEventListener('click', () => {

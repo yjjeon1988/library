@@ -41,12 +41,22 @@ jobs:
       - name: Scrape new covers
         run: node scripts/scrape-covers.mjs
 
+      - name: Enrich ratings (Aladin)
+        env:
+          ALADIN_TTB_KEY: ${{ secrets.ALADIN_TTB_KEY }}
+        run: |
+          if [ -n "$ALADIN_TTB_KEY" ]; then
+            node scripts/enrich-aladin.mjs
+          else
+            echo "ALADIN_TTB_KEY 미설정 — 평점 수집 건너뜀"
+          fi
+
       - name: Commit sync changes (if any)
         run: |
-          if [[ -n "$(git status --porcelain data/books.csv covers/)" ]]; then
+          if [[ -n "$(git status --porcelain data/books.csv data/aladin.json covers/)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/books.csv covers/
+            git add data/books.csv data/aladin.json covers/
             git commit -m "sync: 노션 DB 자동 업데이트"
             git push
           else

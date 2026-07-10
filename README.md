@@ -8,12 +8,16 @@
 
 ```
 도서/
-├── data/books.csv              # 노션 API로 자동 동기화
+├── data/
+│   ├── books.csv               # 노션 API로 자동 동기화
+│   ├── aladin.json             # 알라딘 평점·소개 (자동 수집, 증분)
+│   └── insights.json           # 책별 AI 핵심 인사이트 (수동 추가)
 ├── covers/                     # yes24 표지 (신규분만 자동 스크래핑)
 ├── scripts/
 │   ├── sync-from-notion.mjs    # 노션 API → CSV
 │   ├── scrape-covers.mjs       # yes24 → 이미지
-│   └── build-site.mjs          # CSV + 이미지 → HTML
+│   ├── enrich-aladin.mjs       # 알라딘 API → 평점·소개
+│   └── build-site.mjs          # CSV + 이미지 + 평점 + 인사이트 → HTML
 ├── .github/workflows/deploy.yml # 매일 자동 동기화 + 배포
 └── dist/                       # 빌드 결과 (gitignore)
 ```
@@ -30,6 +34,20 @@
 
 즉시 반영하고 싶으면 [Actions 탭](https://github.com/yjjeon1988/library/actions)에서 "Run workflow" 수동 실행.
 
+## 평점 & 핵심 인사이트
+
+책 표지를 **클릭**하면 상세 모달이 열린다 — 알라딘 평점 ⭐, 한 줄 요약, 핵심 인사이트, 책 소개, yes24·알라딘 링크.
+
+- **평점(⭐)** — 알라딘 OpenAPI로 자동 수집. 표지 좌상단 배지 + 모달에 표시. `enrich-aladin.mjs`가 신규 책만 증분 수집해 `data/aladin.json`에 캐시.
+- **핵심 인사이트** — AI가 알라딘 소개글을 근거로 생성해 `data/insights.json`에 저장. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
+  - **새 책 인사이트 추가:** Claude Code에게 "최근 추가된 책들 인사이트 채워줘"라고 요청하면 `data/insights.json`에 추가해준다. (자동 아님 — 품질 위해 수동)
+
+### 알라딘 키
+
+- `enrich-aladin.mjs`는 환경변수 `ALADIN_TTB_KEY`를 읽는다.
+- GitHub Actions에서 평점을 자동 갱신하려면 저장소 Secret에 `ALADIN_TTB_KEY` 추가. (없으면 수집 단계는 조용히 건너뜀)
+- 키 발급: https://www.aladin.co.kr/ttb/wblog_manage.aspx
+
 ## 로컬 개발
 
 ```bash
@@ -39,10 +57,14 @@ NOTION_TOKEN=secret_... NOTION_DATABASE_ID=... npm run sync
 # 신규 책 표지 스크래핑
 npm run scrape
 
+# 알라딘 평점·소개 수집 (환경변수 필요, 증분)
+ALADIN_TTB_KEY=ttb... npm run enrich
+ALADIN_TTB_KEY=ttb... npm run enrich -- --force   # 전체 재수집
+
 # 사이트 빌드 (→ dist/)
 npm run build
 
-# 전체 파이프라인
+# 전체 파이프라인 (sync → scrape → enrich → build)
 npm run all
 ```
 
