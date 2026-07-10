@@ -8,8 +8,9 @@
     "sync": "node scripts/sync-from-notion.mjs",
     "scrape": "node scripts/scrape-covers.mjs",
     "enrich": "node scripts/enrich-aladin.mjs",
+    "toc": "node scripts/scrape-toc.mjs",
     "build": "node scripts/build-site.mjs",
-    "all": "node scripts/sync-from-notion.mjs && node scripts/scrape-covers.mjs && node scripts/enrich-aladin.mjs && node scripts/build-site.mjs"
+    "all": "node scripts/sync-from-notion.mjs && node scripts/scrape-covers.mjs && node scripts/enrich-aladin.mjs && node scripts/scrape-toc.mjs && node scripts/build-site.mjs"
   },
   "engines": {
     "node": ">=18"

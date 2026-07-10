@@ -6,12 +6,14 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const CSV_PATH = path.join(ROOT, 'data', 'books.csv');
 const ALADIN_PATH = path.join(ROOT, 'data', 'aladin.json');
 const INSIGHTS_PATH = path.join(ROOT, 'data', 'insights.json');
+const TOC_PATH = path.join(ROOT, 'data', 'toc.json');
 const COVERS_DIR = path.join(ROOT, 'covers');
 const DIST_DIR = path.join(ROOT, 'dist');
 
 // main() 에서 채운다. renderBook 이 참조.
 let ALADIN = {};
 let INSIGHTS = {};
+let TOC = {};
 
 const escapeHtml = (s = '') => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -111,6 +113,7 @@ function buildBookData(books) {
       ratingCount: al.ratingCount ?? null,
       oneLine: ins.oneLine || '',
       insights: ins.insights || [],
+      toc: (TOC[key] && TOC[key].lines) || [],
       description: al.description || '',
       yes24: link || '',
       aladin: al.aladinLink || '',
@@ -140,6 +143,7 @@ async function main() {
 
   ALADIN = await fs.readFile(ALADIN_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
   INSIGHTS = await fs.readFile(INSIGHTS_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
+  TOC = await fs.readFile(TOC_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
 
   await fs.rm(DIST_DIR, { recursive: true, force: true });
   await fs.mkdir(path.join(DIST_DIR, 'covers'), { recursive: true });
@@ -818,6 +822,27 @@ ${allBooksSorted.map(renderBook).join('\n')}
     line-height: 1.7;
     color: var(--text-muted);
   }
+  .modal-toc {
+    list-style: none;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 4px 12px 4px 2px;
+    border-left: 2px solid var(--line-strong);
+  }
+  .modal-toc::-webkit-scrollbar { width: 8px; }
+  .modal-toc::-webkit-scrollbar-thumb { background: rgba(201,168,118,0.25); border-radius: 4px; }
+  .modal-toc li { font-size: 13.5px; line-height: 1.5; }
+  .modal-toc .toc-h {
+    color: var(--text-primary);
+    font-weight: 700;
+    margin: 12px 0 5px;
+    padding-left: 12px;
+  }
+  .modal-toc .toc-h:first-child { margin-top: 0; }
+  .modal-toc .toc-i {
+    color: var(--text-muted);
+    padding: 2px 0 2px 24px;
+  }
   .modal-empty {
     font-size: 13.5px;
     line-height: 1.6;
@@ -1017,7 +1042,13 @@ ${yearShelvesHtml}
           html += '<div class="modal-section"><div class="modal-empty">아직 이 책의 핵심 인사이트가 정리되지 않았어요.' +
             (d.description ? ' 아래 책 소개를 참고하세요.' : '') + '</div></div>';
         }
-        if (d.description) {
+        if (d.toc && d.toc.length) {
+          const isHead = (t) => t.indexOf(' · ') >= 0 ||
+            /^(제?\\s*\\d+\\s*[부장편]|서문|서장|서론|들어가며|여는 글|프롤로그|나가며|닫는 글|에필로그|맺음말|맺는말|결론|종장|부록|추천사|감사|옮긴이)/.test(t);
+          html += '<div class="modal-section"><div class="modal-section-label">목차</div><ul class="modal-toc">' +
+            d.toc.map((t) => '<li class="' + (isHead(t) ? 'toc-h' : 'toc-i') + '">' + esc(t) + '</li>').join('') +
+            '</ul></div>';
+        } else if (d.description) {
           html += '<div class="modal-section"><div class="modal-section-label">책 소개</div>' +
             '<div class="modal-desc">' + esc(d.description) + '</div></div>';
         }
