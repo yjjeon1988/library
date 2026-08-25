@@ -17,6 +17,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  models: read
 
 concurrency:
   group: pages
@@ -54,12 +55,17 @@ jobs:
       - name: Scrape new TOC (yes24)
         run: node scripts/scrape-toc.mjs
 
+      - name: Generate insights (GitHub Models)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/generate-insights.mjs
+
       - name: Commit sync changes (if any)
         run: |
-          if [[ -n "$(git status --porcelain data/books.csv data/aladin.json data/toc.json covers/)" ]]; then
+          if [[ -n "$(git status --porcelain data/books.csv data/aladin.json data/toc.json data/insights.json covers/)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/books.csv data/aladin.json data/toc.json covers/
+            git add data/books.csv data/aladin.json data/toc.json data/insights.json covers/
             git commit -m "sync: 노션 DB 자동 업데이트"
             git push
           else

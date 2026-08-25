@@ -2,6 +2,8 @@
 
 **🔗 라이브 사이트: https://yjjeon1988.github.io/library/**
 
+[![Build and Deploy Bookshelf](https://github.com/yjjeon1988/library/actions/workflows/deploy.yml/badge.svg)](https://github.com/yjjeon1988/library/actions/workflows/deploy.yml)
+
 노션 독서 DB → yes24 표지 스크래핑 → 정적 HTML 서재 → GitHub Pages 자동 배포.
 
 ## 구조
@@ -12,13 +14,14 @@
 │   ├── books.csv               # 노션 API로 자동 동기화
 │   ├── aladin.json             # 알라딘 평점·소개 (자동 수집, 증분)
 │   ├── toc.json                # yes24 목차 (자동 스크래핑, 증분)
-│   └── insights.json           # 책별 AI 핵심 인사이트 (수동 추가)
+│   └── insights.json           # 책별 AI 핵심 인사이트 (자동 생성, 증분)
 ├── covers/                     # yes24 표지 (신규분만 자동 스크래핑)
 ├── scripts/
 │   ├── sync-from-notion.mjs    # 노션 API → CSV
 │   ├── scrape-covers.mjs       # yes24 → 이미지
 │   ├── enrich-aladin.mjs       # 알라딘 API → 평점·소개
 │   ├── scrape-toc.mjs          # yes24 → 목차
+│   ├── generate-insights.mjs   # GitHub Models → 핵심 인사이트
 │   └── build-site.mjs          # CSV + 이미지 + 평점 + 목차 + 인사이트 → HTML
 ├── .github/workflows/deploy.yml # 매일 자동 동기화 + 배포
 └── dist/                       # 빌드 결과 (gitignore)
@@ -29,12 +32,14 @@
 1. **매일 09:00 KST** GitHub Actions가 자동 실행
 2. 노션 API로 독서리스트 DB 전체 가져와서 `data/books.csv` 갱신
 3. 신규 책만 yes24에서 표지 다운로드 (`covers/`)
-4. 변경사항 있으면 git에 자동 커밋
-5. 정적 사이트 빌드 → GitHub Pages 배포
+4. 신규 책만 알라딘 평점·소개, yes24 목차, AI 핵심 인사이트 자동 수집·생성
+5. 변경사항 있으면 git에 자동 커밋
+6. 정적 사이트 빌드 → GitHub Pages 배포
 
 **사용자가 할 일:** 노션에 책 추가만 하면 끝.
 
-즉시 반영하고 싶으면 [Actions 탭](https://github.com/yjjeon1988/library/actions)에서 "Run workflow" 수동 실행.
+즉시 반영하고 싶으면 **[여기서 수동 실행](https://github.com/yjjeon1988/library/actions/workflows/deploy.yml)** → 우측 "Run workflow" 버튼 클릭.
+(로그인 상태여야 버튼이 보인다. GitHub 정책상 클릭 한 번으로 바로 실행되는 링크는 만들 수 없다 — 최소 이 버튼 클릭은 필요하다.)
 
 ## 평점 & 핵심 인사이트
 
@@ -42,14 +47,19 @@
 
 - **평점(⭐)** — 알라딘 OpenAPI로 자동 수집. 제목 앞 별점 + 모달에 표시. `enrich-aladin.mjs`가 신규 책만 증분 수집해 `data/aladin.json`에 캐시.
 - **목차** — yes24 상품 페이지에서 스크래핑. `scrape-toc.mjs`가 신규 책만 증분 수집해 `data/toc.json`에 캐시. 모달에서 부/장은 굵게, 세부 항목은 들여쓰기로 표시. 목차가 없는 책(소설·에세이 등)은 알라딘 책 소개로 폴백.
-- **핵심 인사이트** — AI가 알라딘 소개글을 근거로 생성해 `data/insights.json`에 저장. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
-  - **새 책 인사이트 추가:** Claude Code에게 "최근 추가된 책들 인사이트 채워줘"라고 요청하면 `data/insights.json`에 추가해준다. (자동 아님 — 품질 위해 수동)
+- **핵심 인사이트** — 알라딘 소개글을 근거로 [GitHub Models](https://github.com/marketplace/models)(무료 추론 API, 기본 `openai/gpt-4o-mini`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
+  - 알라딘 소개글이 없는 책(검색 실패 등)은 건너뛰고, 다음 날 알라딘 정보가 채워지면 자동으로 다시 시도된다.
+  - 급하게 특정 책 인사이트를 손보고 싶으면 `data/insights.json`을 직접 수정해도 된다 (다음 실행 때 이미 값이 있으면 덮어쓰지 않음).
 
-### 알라딘 키
+### API 키 / 토큰
 
 - `enrich-aladin.mjs`는 환경변수 `ALADIN_TTB_KEY`를 읽는다.
-- GitHub Actions에서 평점을 자동 갱신하려면 저장소 Secret에 `ALADIN_TTB_KEY` 추가. (없으면 수집 단계는 조용히 건너뜀)
-- 키 발급: https://www.aladin.co.kr/ttb/wblog_manage.aspx
+  - GitHub Actions에서 평점을 자동 갱신하려면 저장소 Secret에 `ALADIN_TTB_KEY` 추가. (없으면 수집 단계는 조용히 건너뜀)
+  - 키 발급: https://www.aladin.co.kr/ttb/wblog_manage.aspx
+- `generate-insights.mjs`는 GitHub Models를 쓴다 — **별도 키·결제 없이** GitHub Actions 기본 `GITHUB_TOKEN`으로 동작한다 (워크플로 `permissions.models: read` 설정만 있으면 됨).
+  - 무료 등급은 분당/일별 요청 수 제한이 있다. 스크립트는 요청 사이 `GH_MODELS_SLEEP_MS`(기본 4000ms)만큼 대기해 제한을 피한다.
+  - 모델은 기본 `openai/gpt-4o-mini`. 환경변수 `GH_MODELS_MODEL`로 다른 모델(예: `meta/Llama-3.3-70B-Instruct`)로 override 가능.
+  - 로컬에서 실행하려면 [Models: Read-only 권한의 fine-grained PAT](https://github.com/settings/tokens)을 발급해 `GITHUB_TOKEN` 환경변수로 넘긴다.
 
 ## 로컬 개발
 
@@ -68,10 +78,13 @@ ALADIN_TTB_KEY=ttb... npm run enrich -- --force   # 전체 재수집
 npm run toc
 npm run toc -- --force                            # 전체 재수집
 
+# AI 핵심 인사이트 생성 (models:read 권한의 PAT 필요, 증분)
+GITHUB_TOKEN=github_pat_... npm run insights
+
 # 사이트 빌드 (→ dist/)
 npm run build
 
-# 전체 파이프라인 (sync → scrape → enrich → toc → build)
+# 전체 파이프라인 (sync → scrape → enrich → toc → insights → build)
 npm run all
 ```
 
@@ -80,6 +93,8 @@ npm run all
 - `NOTION_TOKEN` — 노션 internal integration secret (`ntn_...`)
   - https://www.notion.so/profile/integrations 에서 생성
   - 독서리스트 DB에 명시적 Connection 필요
+- `ALADIN_TTB_KEY` — 알라딘 평점·소개 자동 수집용 (없으면 조용히 건너뜀)
+- AI 핵심 인사이트는 별도 Secret 불필요 — GitHub Actions 기본 `GITHUB_TOKEN` + 워크플로 `permissions.models: read`로 동작
 
 ## License
 
