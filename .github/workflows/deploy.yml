@@ -17,7 +17,6 @@ permissions:
   contents: write
   pages: write
   id-token: write
-  models: read
 
 concurrency:
   group: pages
@@ -55,10 +54,15 @@ jobs:
       - name: Scrape new TOC (yes24)
         run: node scripts/scrape-toc.mjs
 
-      - name: Generate insights (GitHub Models)
+      - name: Generate insights (Gemini)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/generate-insights.mjs
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GEMINI_API_KEY" ]; then
+            node scripts/generate-insights.mjs
+          else
+            echo "GEMINI_API_KEY 미설정 — 인사이트 생성 건너뜀"
+          fi
 
       - name: Commit sync changes (if any)
         run: |

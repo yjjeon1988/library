@@ -21,7 +21,7 @@
 │   ├── scrape-covers.mjs       # yes24 → 이미지
 │   ├── enrich-aladin.mjs       # 알라딘 API → 평점·소개
 │   ├── scrape-toc.mjs          # yes24 → 목차
-│   ├── generate-insights.mjs   # GitHub Models → 핵심 인사이트
+│   ├── generate-insights.mjs   # Gemini API → 핵심 인사이트
 │   └── build-site.mjs          # CSV + 이미지 + 평점 + 목차 + 인사이트 → HTML
 ├── .github/workflows/deploy.yml # 매일 자동 동기화 + 배포
 └── dist/                       # 빌드 결과 (gitignore)
@@ -47,19 +47,21 @@
 
 - **평점(⭐)** — 알라딘 OpenAPI로 자동 수집. 제목 앞 별점 + 모달에 표시. `enrich-aladin.mjs`가 신규 책만 증분 수집해 `data/aladin.json`에 캐시.
 - **목차** — yes24 상품 페이지에서 스크래핑. `scrape-toc.mjs`가 신규 책만 증분 수집해 `data/toc.json`에 캐시. 모달에서 부/장은 굵게, 세부 항목은 들여쓰기로 표시. 목차가 없는 책(소설·에세이 등)은 알라딘 책 소개로 폴백.
-- **핵심 인사이트** — 알라딘 소개글을 근거로 [GitHub Models](https://github.com/marketplace/models)(무료 추론 API, 기본 `openai/gpt-4o-mini`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
+- **핵심 인사이트** — 알라딘 소개글을 근거로 [Google Gemini API](https://aistudio.google.com/apikey)(무료 티어, 기본 `gemini-2.5-flash-lite`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
   - 알라딘 소개글이 없는 책(검색 실패 등)은 건너뛰고, 다음 날 알라딘 정보가 채워지면 자동으로 다시 시도된다.
   - 급하게 특정 책 인사이트를 손보고 싶으면 `data/insights.json`을 직접 수정해도 된다 (다음 실행 때 이미 값이 있으면 덮어쓰지 않음).
+  - (참고: 처음엔 GitHub Models 무료 추론 API를 썼으나, 2026-07-30 GitHub Models 완전 종료로 Gemini API로 교체함.)
 
-### API 키 / 토큰
+### API 키
 
 - `enrich-aladin.mjs`는 환경변수 `ALADIN_TTB_KEY`를 읽는다.
   - GitHub Actions에서 평점을 자동 갱신하려면 저장소 Secret에 `ALADIN_TTB_KEY` 추가. (없으면 수집 단계는 조용히 건너뜀)
   - 키 발급: https://www.aladin.co.kr/ttb/wblog_manage.aspx
-- `generate-insights.mjs`는 GitHub Models를 쓴다 — **별도 키·결제 없이** GitHub Actions 기본 `GITHUB_TOKEN`으로 동작한다 (워크플로 `permissions.models: read` 설정만 있으면 됨).
-  - 무료 등급은 분당/일별 요청 수 제한이 있다. 스크립트는 요청 사이 `GH_MODELS_SLEEP_MS`(기본 4000ms)만큼 대기해 제한을 피한다.
-  - 모델은 기본 `openai/gpt-4o-mini`. 환경변수 `GH_MODELS_MODEL`로 다른 모델(예: `meta/Llama-3.3-70B-Instruct`)로 override 가능.
-  - 로컬에서 실행하려면 [Models: Read-only 권한의 fine-grained PAT](https://github.com/settings/tokens)을 발급해 `GITHUB_TOKEN` 환경변수로 넘긴다.
+- `generate-insights.mjs`는 환경변수 `GEMINI_API_KEY`를 읽는다.
+  - GitHub Actions에서 인사이트를 자동 생성하려면 저장소 Secret에 `GEMINI_API_KEY` 추가. (없으면 생성 단계는 조용히 건너뜀)
+  - 키 발급: https://aistudio.google.com/apikey (무료, 신용카드 등록 불필요)
+  - 무료 등급은 분당·일별 요청 수 제한이 있다. 스크립트는 요청 사이 `GEMINI_SLEEP_MS`(기본 4500ms)만큼 대기해 제한을 피한다.
+  - 모델은 기본 `gemini-2.5-flash-lite`. 환경변수 `GEMINI_MODEL`로 override 가능.
 
 ## 로컬 개발
 
@@ -78,8 +80,8 @@ ALADIN_TTB_KEY=ttb... npm run enrich -- --force   # 전체 재수집
 npm run toc
 npm run toc -- --force                            # 전체 재수집
 
-# AI 핵심 인사이트 생성 (models:read 권한의 PAT 필요, 증분)
-GITHUB_TOKEN=github_pat_... npm run insights
+# AI 핵심 인사이트 생성 (환경변수 필요, 증분)
+GEMINI_API_KEY=... npm run insights
 
 # 사이트 빌드 (→ dist/)
 npm run build
@@ -94,7 +96,7 @@ npm run all
   - https://www.notion.so/profile/integrations 에서 생성
   - 독서리스트 DB에 명시적 Connection 필요
 - `ALADIN_TTB_KEY` — 알라딘 평점·소개 자동 수집용 (없으면 조용히 건너뜀)
-- AI 핵심 인사이트는 별도 Secret 불필요 — GitHub Actions 기본 `GITHUB_TOKEN` + 워크플로 `permissions.models: read`로 동작
+- `GEMINI_API_KEY` — AI 핵심 인사이트 자동 생성용 (없으면 조용히 건너뜀)
 
 ## License
 

@@ -1,12 +1,13 @@
-// GitHub Models(무료 추론 API)로 알라딘 소개글을 근거로 책 핵심 인사이트를 자동 생성해
+// Google Gemini API(무료 티어)로 알라딘 소개글을 근거로 책 핵심 인사이트를 자동 생성해
 // data/insights.json 에 저장한다.
 // - 증분: 이미 insights.json 에 있는 책은 건너뛴다.
 // - 알라딘 소개글(fullDescription/description)이 없는 책은 건너뛴다.
-// - GitHub Actions: 워크플로 permissions에 `models: read` 만 있으면 GITHUB_TOKEN으로 그대로 동작.
-// - 로컬: models:read 권한이 있는 개인 액세스 토큰을 GITHUB_TOKEN 환경변수로 넘긴다.
-//   (https://github.com/settings/tokens → Fine-grained token → Account permissions → Models: Read-only)
+// - 환경변수 GEMINI_API_KEY 필요 (무료: https://aistudio.google.com/apikey).
+//   GEMINI_MODEL 로 모델 override 가능 (기본 gemini-2.5-flash-lite — 무료 한도 가장 넉넉).
 //
-//   GITHUB_TOKEN=github_pat_... node scripts/generate-insights.mjs
+//   GEMINI_API_KEY=... node scripts/generate-insights.mjs
+//
+// (2026-07-30 GitHub Models 완전 종료로 Anthropic API → GitHub Models → Gemini API 순으로 교체됨)
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseCSV, bookKey } from './lib-csv.mjs';
@@ -16,49 +17,50 @@ const CSV_PATH = path.join(ROOT, 'data', 'books.csv');
 const ALADIN_PATH = path.join(ROOT, 'data', 'aladin.json');
 const INSIGHTS_PATH = path.join(ROOT, 'data', 'insights.json');
 
-const TOKEN = process.env.GITHUB_TOKEN;
-const MODEL = process.env.GH_MODELS_MODEL || 'openai/gpt-4o-mini';
-const SLEEP_MS = Number(process.env.GH_MODELS_SLEEP_MS || 4000); // 무료 등급 분당 요청 제한 대응
-const ENDPOINT = 'https://models.github.ai/inference/chat/completions';
+const API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const SLEEP_MS = Number(process.env.GEMINI_SLEEP_MS || 4500); // 무료 등급 분당 요청 제한(15 RPM) 대응
+const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function extractJson(text) {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) throw new Error('JSON 블록을 찾을 수 없음');
-  return JSON.parse(text.slice(start, end + 1));
-}
+const RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    oneLine: { type: 'string' },
+    insights: { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 },
+  },
+  required: ['oneLine', 'insights'],
+};
 
 async function generateInsight(title, author, intro) {
   const prompt =
     `아래는 책 "${title}"${author ? ` (저자: ${author})` : ''}의 소개글이다.\n\n` +
     `"""\n${intro.slice(0, 4000)}\n"""\n\n` +
-    `이 소개글만 근거로, 과장하거나 없는 내용을 지어내지 말고 다음 JSON 형식으로만 답하라. ` +
-    `다른 텍스트나 코드블록 없이 JSON 객체 하나만 출력할 것.\n` +
-    `{"oneLine": "책의 핵심 메시지를 압축한 한 문장(한국어)", ` +
-    `"insights": ["독자에게 실질적으로 도움되는 핵심 인사이트 1", "핵심 인사이트 2", "핵심 인사이트 3"]}`;
+    `이 소개글만 근거로, 과장하거나 없는 내용을 지어내지 말고 한국어로 한 줄 요약(oneLine)과 ` +
+    `독자에게 실질적으로 도움되는 핵심 인사이트 3가지(insights)를 작성하라.`;
 
-  const res = await fetch(ENDPOINT, {
+  const res = await fetch(`${ENDPOINT}?key=${API_KEY}`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${TOKEN}`,
-    },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: 'application/json',
+        responseSchema: RESPONSE_SCHEMA,
+      },
     }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  const text = data.choices?.[0]?.message?.content || '';
-  return extractJson(text);
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('응답에 텍스트 없음');
+  return JSON.parse(text);
 }
 
 async function main() {
-  if (!TOKEN) {
-    console.error('환경변수 GITHUB_TOKEN 이 필요합니다 (models: read 권한).');
+  if (!API_KEY) {
+    console.error('환경변수 GEMINI_API_KEY 가 필요합니다.');
     process.exit(1);
   }
 
