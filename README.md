@@ -47,7 +47,7 @@
 
 - **평점(⭐)** — 알라딘 OpenAPI로 자동 수집. 제목 앞 별점 + 모달에 표시. `enrich-aladin.mjs`가 신규 책만 증분 수집해 `data/aladin.json`에 캐시.
 - **목차** — yes24 상품 페이지에서 스크래핑. `scrape-toc.mjs`가 신규 책만 증분 수집해 `data/toc.json`에 캐시. 모달에서 부/장은 굵게, 세부 항목은 들여쓰기로 표시. 목차가 없는 책(소설·에세이 등)은 알라딘 책 소개로 폴백.
-- **핵심 인사이트** — 알라딘 소개글을 근거로 [Google Gemini API](https://aistudio.google.com/apikey)(무료 티어, 기본 `gemini-2.5-flash-lite`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
+- **핵심 인사이트** — 알라딘 소개글을 근거로 [Google Gemini API](https://aistudio.google.com/apikey)(무료 티어, 기본 `gemini-3.5-flash-lite`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
   - 알라딘 소개글이 없는 책(검색 실패 등)은 건너뛰고, 다음 날 알라딘 정보가 채워지면 자동으로 다시 시도된다.
   - 급하게 특정 책 인사이트를 손보고 싶으면 `data/insights.json`을 직접 수정해도 된다 (다음 실행 때 이미 값이 있으면 덮어쓰지 않음).
   - (참고: 처음엔 GitHub Models 무료 추론 API를 썼으나, 2026-07-30 GitHub Models 완전 종료로 Gemini API로 교체함.)
@@ -61,7 +61,7 @@
   - GitHub Actions에서 인사이트를 자동 생성하려면 저장소 Secret에 `GEMINI_API_KEY` 추가. (없으면 생성 단계는 조용히 건너뜀)
   - 키 발급: https://aistudio.google.com/apikey (무료, 신용카드 등록 불필요)
   - 무료 등급은 분당·일별 요청 수 제한이 있다. 스크립트는 요청 사이 `GEMINI_SLEEP_MS`(기본 4500ms)만큼 대기해 제한을 피한다.
-  - 모델은 기본 `gemini-2.5-flash-lite`. 환경변수 `GEMINI_MODEL`로 override 가능.
+  - 모델은 기본 `gemini-3.5-flash-lite`. 환경변수 `GEMINI_MODEL`로 override 가능.
 
 ## 로컬 개발
 

@@ -3,7 +3,7 @@
 // - 증분: 이미 insights.json 에 있는 책은 건너뛴다.
 // - 알라딘 소개글(fullDescription/description)이 없는 책은 건너뛴다.
 // - 환경변수 GEMINI_API_KEY 필요 (무료: https://aistudio.google.com/apikey).
-//   GEMINI_MODEL 로 모델 override 가능 (기본 gemini-2.5-flash-lite — 무료 한도 가장 넉넉).
+//   GEMINI_MODEL 로 모델 override 가능 (기본 gemini-3.5-flash-lite).
 //
 //   GEMINI_API_KEY=... node scripts/generate-insights.mjs
 //
@@ -18,7 +18,7 @@ const ALADIN_PATH = path.join(ROOT, 'data', 'aladin.json');
 const INSIGHTS_PATH = path.join(ROOT, 'data', 'insights.json');
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const SLEEP_MS = Number(process.env.GEMINI_SLEEP_MS || 4500); // 무료 등급 분당 요청 제한(15 RPM) 대응
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
