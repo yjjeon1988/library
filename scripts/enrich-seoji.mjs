@@ -2,8 +2,10 @@
 // (알라딘 OpenAPI 종료 대체 — 알라딘은 평점 4곳 중 3곳을 담당했으나, 이 스크립트는 책소개만 담당.
 //  평점·ISBN은 scrape-yes24.mjs가 수집한다.)
 // - 키: data/yes24.json 의 isbn13 (bookKey 로 도서와 연결).
-// - seoji API는 책소개를 텍스트가 아니라 URL(BOOK_INTRODUCTION_URL)로 반환하므로, 그 URL을 한 번 더
-//   fetch해 본문 텍스트를 추출한다. HTML이면 태그를 제거하고 텍스트만 남긴다.
+// - 책소개는 BOOK_INTRODUCTION/BOOK_SUMMARY 필드에 텍스트로 바로 들어있다
+//   (같은 이름에 _URL이 붙은 필드도 있으나 실측 결과 항상 빈 값 — 참고용으로만 남겨둔다).
+// - 출판사가 CIP 신청 시 등록한 정보라 커버리지가 100%가 아니다(실측 샘플 기준 약 20%).
+//   책소개가 없는 책은 ok:true, description:'' 로 기록되고 인사이트 생성 단계에서 자동 스킵된다.
 // - 증분: 이미 캐시에 있는 책은 건너뛴다 (--force 로 전체 재수집).
 // - 환경변수 SEOJI_API_KEY 필요 (발급: https://www.nl.go.kr/NL/contents/N31101010000.do).
 //
@@ -32,23 +34,6 @@ async function apiGet(url) {
   return res.json();
 }
 
-// BOOK_INTRODUCTION_URL / BOOK_SUMMARY_URL 은 텍스트가 아니라 URL — 별도로 fetch해 본문만 추출한다.
-async function fetchIntroText(url) {
-  if (!url) return '';
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
-  if (!res.ok) return '';
-  const raw = await res.text();
-  if (!/<[a-z][\s\S]*>/i.test(raw)) return raw.trim(); // HTML이 아니면 그대로
-  const body = raw.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] || raw;
-  return body
-    .replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-}
-
 async function fetchSeoji(isbn13) {
   const url =
     `https://www.nl.go.kr/seoji/SearchApi.do?cert_key=${CERT_KEY}` +
@@ -66,8 +51,7 @@ async function fetchSeoji(isbn13) {
     debugLogged++;
   }
 
-  const introUrl = item.BOOK_INTRODUCTION_URL || item.BOOK_SUMMARY_URL || '';
-  const description = await fetchIntroText(introUrl);
+  const description = (item.BOOK_INTRODUCTION || item.BOOK_SUMMARY || '').trim();
 
   return {
     seojiTitle: item.TITLE || '',

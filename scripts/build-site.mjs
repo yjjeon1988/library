@@ -105,7 +105,7 @@ function buildBookData(books) {
       oneLine: ins.oneLine || '',
       insights: ins.insights || [],
       toc: y.lines || [],
-      description: SEOJI[key]?.description || '',
+      description: SEOJI[key]?.description || y.description || '',
       yes24: link || '',
     };
   }

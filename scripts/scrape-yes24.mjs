@@ -1,5 +1,7 @@
-// yes24 상품 페이지에서 목차·평점·ISBN13을 스크래핑해 data/yes24.json 에 캐시한다.
-// (구 scrape-toc.mjs 확장 — 알라딘 OpenAPI 종료로 평점·ISBN13도 같은 페이지에서 함께 수집)
+// yes24 상품 페이지에서 목차·평점·ISBN13·책소개를 스크래핑해 data/yes24.json 에 캐시한다.
+// (구 scrape-toc.mjs 확장 — 알라딘 OpenAPI 종료로 평점·ISBN13·책소개도 같은 페이지에서 함께 수집)
+// - description은 국립중앙도서관 seoji API 책소개가 없는 책(약 83%)의 폴백으로 쓰인다
+//   (enrich-seoji.mjs, build-site.mjs 참고). seoji가 커버리지 낮음 — yes24 자체 소개가 사실상 원 소스.
 // - 키: bookKey (yes24 pid 기반).
 // - 증분: 이미 캐시에 있는 책은 건너뜀 (--force 로 전체 재수집).
 //   node scripts/scrape-yes24.mjs
@@ -62,6 +64,21 @@ function parseIsbn13(html) {
   return m ? m[1] : null;
 }
 
+// 책소개 HTML(id="infoset_introduce" 영역의 textarea) → 정제된 텍스트.
+function parseDescription(html) {
+  const start = html.indexOf('id="infoset_introduce"');
+  if (start < 0) return '';
+  const region = html.slice(start, start + 40000);
+  const m = region.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i);
+  if (!m) return '';
+
+  return decodeEntities(
+    m[1]
+      .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+  ).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 async function fetchYes24(pid) {
   const url = `https://www.yes24.com/Product/Goods/${pid}`;
   const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'ko-KR,ko;q=0.9' } });
@@ -72,6 +89,7 @@ async function fetchYes24(pid) {
     lines: parseToc(html),
     rating: parseRating(html),
     isbn13: parseIsbn13(html),
+    description: parseDescription(html),
   };
 }
 
