@@ -1,19 +1,19 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { parseCSV, extractYes24ProductId, bookKey, isSuspectMatch } from './lib-csv.mjs';
+import { parseCSV, extractYes24ProductId, bookKey } from './lib-csv.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CSV_PATH = path.join(ROOT, 'data', 'books.csv');
-const ALADIN_PATH = path.join(ROOT, 'data', 'aladin.json');
+const SEOJI_PATH = path.join(ROOT, 'data', 'seoji.json');
 const INSIGHTS_PATH = path.join(ROOT, 'data', 'insights.json');
-const TOC_PATH = path.join(ROOT, 'data', 'toc.json');
+const YES24_PATH = path.join(ROOT, 'data', 'yes24.json');
 const COVERS_DIR = path.join(ROOT, 'covers');
 const DIST_DIR = path.join(ROOT, 'dist');
 
 // main() 에서 채운다. renderBook 이 참조.
-let ALADIN = {};
+let SEOJI = {};
 let INSIGHTS = {};
-let TOC = {};
+let YES24 = {};
 
 const escapeHtml = (s = '') => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -49,14 +49,6 @@ function parseDateInfo(s) {
   };
 }
 
-// 오매칭이면 평점·소개를 신뢰하지 않는다. 신뢰 가능한 알라딘 항목만 반환.
-function trustedAladin(key, title) {
-  const al = ALADIN[key];
-  if (!al || al.ok === false) return {};
-  const suspect = al.suspect ?? isSuspectMatch(title, al.aladinTitle);
-  return suspect ? {} : al;
-}
-
 // 평점: 제목 앞에 붙는 인라인 별점. 0보다 큰 평점이 있을 때만. rating 은 0~10 스케일.
 function ratingInline(rating) {
   if (!rating || rating <= 0) return '';
@@ -73,8 +65,7 @@ function renderBook(b, idx) {
   const coverPath = pid ? `covers/${pid}.jpg` : fallbackCoverSvg(title, author, idx);
   const fallback = fallbackCoverSvg(title, author, idx);
   const key = bookKey(b);
-  const al = trustedAladin(key, title);
-  const rating = al.ratingScore ?? (al.reviewRank != null ? al.reviewRank / 2 : null);
+  const rating = YES24[key]?.rating?.score ?? null;
   const hasInsight = !!(INSIGHTS[key] && (INSIGHTS[key].oneLine || (INSIGHTS[key].insights || []).length));
   const dateHtml = date ? `<div class="book-date">${date.formatted}</div>` : '';
   const tooltip = `${escapeHtml(title)}${author ? ` — ${escapeHtml(author)}` : ''}${date ? ` · ${date.formatted}` : ''}`;
@@ -101,22 +92,21 @@ function buildBookData(books) {
     const link = b['링크'] || b['Link'] || '';
     const date = parseDateInfo(b['완독일']);
     const pid = extractYes24ProductId(link);
-    const al = trustedAladin(key, title);
+    const y = YES24[key] || {};
     const ins = INSIGHTS[key] || {};
-    const rating = al.ratingScore ?? (al.reviewRank != null ? al.reviewRank / 2 : null);
+    const rating = y.rating?.score ?? null;
     data[key] = {
       title, author,
       category: b['구분'] || b['Category'] || '',
       date: date ? `${date.year}.${String(date.month).padStart(2, '0')}.${String(date.day).padStart(2, '0')}` : '',
       cover: pid ? `covers/${pid}.jpg` : '',
       rating: rating ?? null,
-      ratingCount: al.ratingCount ?? null,
+      ratingCount: y.rating?.raterCount ?? null,
       oneLine: ins.oneLine || '',
       insights: ins.insights || [],
-      toc: (TOC[key] && TOC[key].lines) || [],
-      description: al.description || '',
+      toc: y.lines || [],
+      description: SEOJI[key]?.description || '',
       yes24: link || '',
-      aladin: al.aladinLink || '',
     };
   }
   return data;
@@ -141,9 +131,9 @@ async function main() {
   const text = await fs.readFile(CSV_PATH, 'utf-8');
   const books = parseCSV(text);
 
-  ALADIN = await fs.readFile(ALADIN_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
+  SEOJI = await fs.readFile(SEOJI_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
   INSIGHTS = await fs.readFile(INSIGHTS_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
-  TOC = await fs.readFile(TOC_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
+  YES24 = await fs.readFile(YES24_PATH, 'utf-8').then(JSON.parse).catch(() => ({}));
 
   await fs.rm(DIST_DIR, { recursive: true, force: true });
   await fs.mkdir(path.join(DIST_DIR, 'covers'), { recursive: true });
@@ -225,6 +215,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>독서리스트 · 나의 서재</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1056,7 +1047,6 @@ ${yearShelvesHtml}
 
         const acts = [];
         if (d.yes24) acts.push('<a class="modal-btn primary" href="' + esc(d.yes24) + '" target="_blank" rel="noopener">yes24에서 보기</a>');
-        if (d.aladin) acts.push('<a class="modal-btn secondary" href="' + esc(d.aladin) + '" target="_blank" rel="noopener">알라딘에서 보기</a>');
         elActions.innerHTML = acts.join('');
       }
 

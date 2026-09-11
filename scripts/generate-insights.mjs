@@ -1,20 +1,21 @@
-// Google Gemini API(무료 티어)로 알라딘 소개글을 근거로 책 핵심 인사이트를 자동 생성해
+// Google Gemini API(무료 티어)로 국립중앙도서관 책소개를 근거로 책 핵심 인사이트를 자동 생성해
 // data/insights.json 에 저장한다.
 // - 증분: 이미 insights.json 에 있는 책은 건너뛴다.
-// - 알라딘 소개글(fullDescription/description)이 없는 책은 건너뛴다.
+// - 책소개(data/seoji.json 의 description)가 없는 책은 건너뛴다.
 // - 환경변수 GEMINI_API_KEY 필요 (무료: https://aistudio.google.com/apikey).
 //   GEMINI_MODEL 로 모델 override 가능 (기본 gemini-3.5-flash-lite).
 //
 //   GEMINI_API_KEY=... node scripts/generate-insights.mjs
 //
 // (2026-07-30 GitHub Models 완전 종료로 Anthropic API → GitHub Models → Gemini API 순으로 교체됨)
+// (2026-10-30 알라딘 OpenAPI 종료로 소개글 출처가 알라딘 → 국립중앙도서관 seoji API로 교체됨)
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseCSV, bookKey } from './lib-csv.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CSV_PATH = path.join(ROOT, 'data', 'books.csv');
-const ALADIN_PATH = path.join(ROOT, 'data', 'aladin.json');
+const SEOJI_PATH = path.join(ROOT, 'data', 'seoji.json');
 const INSIGHTS_PATH = path.join(ROOT, 'data', 'insights.json');
 
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -66,7 +67,7 @@ async function main() {
 
   const csvText = await fs.readFile(CSV_PATH, 'utf-8');
   const books = parseCSV(csvText);
-  const aladin = JSON.parse(await fs.readFile(ALADIN_PATH, 'utf-8').catch(() => '{}'));
+  const seoji = JSON.parse(await fs.readFile(SEOJI_PATH, 'utf-8').catch(() => '{}'));
 
   let insights = {};
   try {
@@ -88,8 +89,8 @@ async function main() {
       continue;
     }
 
-    const a = aladin[key];
-    const intro = (a?.fullDescription || a?.description || '').trim();
+    const s = seoji[key];
+    const intro = (s?.description || '').trim();
     if (!intro) {
       noIntro++;
       continue;

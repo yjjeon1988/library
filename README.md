@@ -12,27 +12,29 @@
 도서/
 ├── data/
 │   ├── books.csv               # 노션 API로 자동 동기화
-│   ├── aladin.json             # 알라딘 평점·소개 (자동 수집, 증분)
-│   ├── toc.json                # yes24 목차 (자동 스크래핑, 증분)
+│   ├── yes24.json              # yes24 목차·평점·ISBN (자동 스크래핑, 증분)
+│   ├── seoji.json              # 국립중앙도서관 책소개 (자동 수집, 증분)
 │   └── insights.json           # 책별 AI 핵심 인사이트 (자동 생성, 증분)
 ├── covers/                     # yes24 표지 (신규분만 자동 스크래핑)
 ├── scripts/
 │   ├── sync-from-notion.mjs    # 노션 API → CSV
 │   ├── scrape-covers.mjs       # yes24 → 이미지
-│   ├── enrich-aladin.mjs       # 알라딘 API → 평점·소개
-│   ├── scrape-toc.mjs          # yes24 → 목차
+│   ├── scrape-yes24.mjs        # yes24 → 목차·평점·ISBN
+│   ├── enrich-seoji.mjs        # 국립중앙도서관 seoji API → 책소개
 │   ├── generate-insights.mjs   # Gemini API → 핵심 인사이트
 │   └── build-site.mjs          # CSV + 이미지 + 평점 + 목차 + 인사이트 → HTML
 ├── .github/workflows/deploy.yml # 매일 자동 동기화 + 배포
 └── dist/                       # 빌드 결과 (gitignore)
 ```
 
+> (2026-10-30 알라딘 OpenAPI 서비스 종료로 평점·책소개 출처를 yes24 스크래핑 확장 + 국립중앙도서관 seoji API로 교체함. `enrich-aladin.mjs`/`patch-aladin.mjs`/`data/aladin.json`은 삭제됨.)
+
 ## 작동 방식 (자동)
 
 1. **매일 09:00 KST** GitHub Actions가 자동 실행
 2. 노션 API로 독서리스트 DB 전체 가져와서 `data/books.csv` 갱신
 3. 신규 책만 yes24에서 표지 다운로드 (`covers/`)
-4. 신규 책만 알라딘 평점·소개, yes24 목차, AI 핵심 인사이트 자동 수집·생성
+4. 신규 책만 yes24 목차·평점·ISBN, 국립중앙도서관 책소개, AI 핵심 인사이트 자동 수집·생성
 5. 변경사항 있으면 git에 자동 커밋
 6. 정적 사이트 빌드 → GitHub Pages 배포
 
@@ -43,20 +45,21 @@
 
 ## 평점 & 핵심 인사이트
 
-책 표지를 **클릭**하면 상세 모달이 열린다 — 알라딘 평점 ⭐, 한 줄 요약, 핵심 인사이트, 목차, yes24·알라딘 링크.
+책 표지를 **클릭**하면 상세 모달이 열린다 — yes24 평점 ⭐, 한 줄 요약, 핵심 인사이트, 목차, yes24 링크.
 
-- **평점(⭐)** — 알라딘 OpenAPI로 자동 수집. 제목 앞 별점 + 모달에 표시. `enrich-aladin.mjs`가 신규 책만 증분 수집해 `data/aladin.json`에 캐시.
-- **목차** — yes24 상품 페이지에서 스크래핑. `scrape-toc.mjs`가 신규 책만 증분 수집해 `data/toc.json`에 캐시. 모달에서 부/장은 굵게, 세부 항목은 들여쓰기로 표시. 목차가 없는 책(소설·에세이 등)은 알라딘 책 소개로 폴백.
-- **핵심 인사이트** — 알라딘 소개글을 근거로 [Google Gemini API](https://aistudio.google.com/apikey)(무료 티어, 기본 `gemini-3.5-flash-lite`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
-  - 알라딘 소개글이 없는 책(검색 실패 등)은 건너뛰고, 다음 날 알라딘 정보가 채워지면 자동으로 다시 시도된다.
+- **평점(⭐)** — yes24 상품 페이지에서 스크래핑(0~10 스케일). 제목 앞 별점 + 모달에 표시. `scrape-yes24.mjs`가 신규 책만 증분 수집해 `data/yes24.json`에 캐시(목차·ISBN13도 함께).
+- **목차** — 같은 yes24 스크래핑에서 함께 수집. 모달에서 부/장은 굵게, 세부 항목은 들여쓰기로 표시. 목차가 없는 책(소설·에세이 등)은 국립중앙도서관 책 소개로 폴백.
+- **핵심 인사이트** — 국립중앙도서관 책소개를 근거로 [Google Gemini API](https://aistudio.google.com/apikey)(무료 티어, 기본 `gemini-3.5-flash-lite`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
+  - 책소개가 없는 책(ISBN 미확보, 검색 실패 등)은 건너뛰고, 다음 날 정보가 채워지면 자동으로 다시 시도된다.
   - 급하게 특정 책 인사이트를 손보고 싶으면 `data/insights.json`을 직접 수정해도 된다 (다음 실행 때 이미 값이 있으면 덮어쓰지 않음).
   - (참고: 처음엔 GitHub Models 무료 추론 API를 썼으나, 2026-07-30 GitHub Models 완전 종료로 Gemini API로 교체함.)
 
 ### API 키
 
-- `enrich-aladin.mjs`는 환경변수 `ALADIN_TTB_KEY`를 읽는다.
-  - GitHub Actions에서 평점을 자동 갱신하려면 저장소 Secret에 `ALADIN_TTB_KEY` 추가. (없으면 수집 단계는 조용히 건너뜀)
-  - 키 발급: https://www.aladin.co.kr/ttb/wblog_manage.aspx
+- `enrich-seoji.mjs`는 환경변수 `SEOJI_API_KEY`를 읽는다 (국립중앙도서관 서지정보유통지원시스템 인증키).
+  - GitHub Actions에서 책소개를 자동 갱신하려면 저장소 Secret에 `SEOJI_API_KEY` 추가. (없으면 수집 단계는 조용히 건너뜀)
+  - 키 발급: https://www.nl.go.kr/NL/contents/N31101010000.do ("인증키 신청/관리")
+  - `scrape-yes24.mjs`는 별도 키 없이 동작한다 (yes24 페이지 스크래핑).
 - `generate-insights.mjs`는 환경변수 `GEMINI_API_KEY`를 읽는다.
   - GitHub Actions에서 인사이트를 자동 생성하려면 저장소 Secret에 `GEMINI_API_KEY` 추가. (없으면 생성 단계는 조용히 건너뜀)
   - 키 발급: https://aistudio.google.com/apikey (무료, 신용카드 등록 불필요)
@@ -72,13 +75,13 @@ NOTION_TOKEN=secret_... NOTION_DATABASE_ID=... npm run sync
 # 신규 책 표지 스크래핑
 npm run scrape
 
-# 알라딘 평점·소개 수집 (환경변수 필요, 증분)
-ALADIN_TTB_KEY=ttb... npm run enrich
-ALADIN_TTB_KEY=ttb... npm run enrich -- --force   # 전체 재수집
+# yes24 목차·평점·ISBN 스크래핑 (증분, 키 불필요)
+npm run yes24
+npm run yes24 -- --force                          # 전체 재수집
 
-# yes24 목차 스크래핑 (증분)
-npm run toc
-npm run toc -- --force                            # 전체 재수집
+# 국립중앙도서관 책소개 수집 (환경변수 필요, 증분, yes24 단계 먼저 실행되어야 함)
+SEOJI_API_KEY=... npm run seoji
+SEOJI_API_KEY=... npm run seoji -- --force        # 전체 재수집
 
 # AI 핵심 인사이트 생성 (환경변수 필요, 증분)
 GEMINI_API_KEY=... npm run insights
@@ -86,7 +89,7 @@ GEMINI_API_KEY=... npm run insights
 # 사이트 빌드 (→ dist/)
 npm run build
 
-# 전체 파이프라인 (sync → scrape → enrich → toc → insights → build)
+# 전체 파이프라인 (sync → scrape → yes24 → seoji → insights → build)
 npm run all
 ```
 
@@ -95,7 +98,7 @@ npm run all
 - `NOTION_TOKEN` — 노션 internal integration secret (`ntn_...`)
   - https://www.notion.so/profile/integrations 에서 생성
   - 독서리스트 DB에 명시적 Connection 필요
-- `ALADIN_TTB_KEY` — 알라딘 평점·소개 자동 수집용 (없으면 조용히 건너뜀)
+- `SEOJI_API_KEY` — 국립중앙도서관 책소개 자동 수집용 (없으면 조용히 건너뜀)
 - `GEMINI_API_KEY` — AI 핵심 인사이트 자동 생성용 (없으면 조용히 건너뜀)
 
 ## License

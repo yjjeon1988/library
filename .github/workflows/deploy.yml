@@ -41,18 +41,18 @@ jobs:
       - name: Scrape new covers
         run: node scripts/scrape-covers.mjs
 
-      - name: Enrich ratings (Aladin)
-        env:
-          ALADIN_TTB_KEY: ${{ secrets.ALADIN_TTB_KEY }}
-        run: |
-          if [ -n "$ALADIN_TTB_KEY" ]; then
-            node scripts/enrich-aladin.mjs
-          else
-            echo "ALADIN_TTB_KEY 미설정 — 평점 수집 건너뜀"
-          fi
+      - name: Scrape yes24 (목차·평점·ISBN)
+        run: node scripts/scrape-yes24.mjs
 
-      - name: Scrape new TOC (yes24)
-        run: node scripts/scrape-toc.mjs
+      - name: Enrich book info (국립중앙도서관 seoji)
+        env:
+          SEOJI_API_KEY: ${{ secrets.SEOJI_API_KEY }}
+        run: |
+          if [ -n "$SEOJI_API_KEY" ]; then
+            node scripts/enrich-seoji.mjs
+          else
+            echo "SEOJI_API_KEY 미설정 — 책소개 수집 건너뜀"
+          fi
 
       - name: Generate insights (Gemini)
         env:
@@ -66,10 +66,10 @@ jobs:
 
       - name: Commit sync changes (if any)
         run: |
-          if [[ -n "$(git status --porcelain data/books.csv data/aladin.json data/toc.json data/insights.json covers/)" ]]; then
+          if [[ -n "$(git status --porcelain data/books.csv data/seoji.json data/yes24.json data/insights.json covers/)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/books.csv data/aladin.json data/toc.json data/insights.json covers/
+            git add data/books.csv data/seoji.json data/yes24.json data/insights.json covers/
             git commit -m "sync: 노션 DB 자동 업데이트"
             git push
           else
