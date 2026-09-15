@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-09-14"
+    "fetchedAt": "2026-09-15"
   },
   "y102488221": {
     "ok": true,
@@ -3821,5 +3821,17 @@
     "pubDate": "20210720",
     "description": "",
     "fetchedAt": "2026-09-11"
+  },
+  "y192470656": {
+    "ok": true,
+    "title": "더 골 3",
+    "author": "에프랏 골드렛 아쉬라그",
+    "isbn13": "9791172102135",
+    "seojiTitle": "더 골",
+    "seojiAuthor": "지은이: 에프랏 골드렛 아쉬라그 ;옮긴이: 이정숙,이주영",
+    "publisher": "동양북스",
+    "pubDate": "20260630",
+    "description": "",
+    "fetchedAt": "2026-09-15"
   }
 }
