@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-09-28"
+    "fetchedAt": "2026-09-29"
   },
   "y102488221": {
     "ok": true,
@@ -3833,5 +3833,17 @@
     "pubDate": "20260630",
     "description": "",
     "fetchedAt": "2026-09-15"
+  },
+  "y82936937": {
+    "ok": true,
+    "title": "소크라테스의 변명·크리톤·파이돈·향연",
+    "author": "소크라테스, 플라톤",
+    "isbn13": "9791190398039",
+    "seojiTitle": "소크라테스의 변명",
+    "seojiAuthor": "플라톤著",
+    "publisher": "현대지성",
+    "pubDate": "20191115",
+    "description": "",
+    "fetchedAt": "2026-09-29"
   }
 }
