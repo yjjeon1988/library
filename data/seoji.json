@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-10-01"
+    "fetchedAt": "2026-10-02"
   },
   "y102488221": {
     "ok": true,
@@ -3845,5 +3845,17 @@
     "pubDate": "20191115",
     "description": "",
     "fetchedAt": "2026-09-29"
+  },
+  "y194875183": {
+    "ok": true,
+    "title": "인재 없음",
+    "author": "오용석",
+    "isbn13": "9791124637159",
+    "seojiTitle": "인재 없음",
+    "seojiAuthor": "오용석 지음",
+    "publisher": "경이로움 :사이다경제",
+    "pubDate": "20260819",
+    "description": "",
+    "fetchedAt": "2026-10-02"
   }
 }
