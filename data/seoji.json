@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-10-08"
+    "fetchedAt": "2026-10-09"
   },
   "y102488221": {
     "ok": true,
@@ -3857,5 +3857,17 @@
     "pubDate": "20260819",
     "description": "",
     "fetchedAt": "2026-10-02"
+  },
+  "y188859332": {
+    "ok": true,
+    "title": "말하지 않고 말하기",
+    "author": "김정운",
+    "isbn13": "9791173579721",
+    "seojiTitle": "말하지 않고 말하기",
+    "seojiAuthor": "김정운 지음",
+    "publisher": "21세기북스(북이십일 21세기북스)",
+    "pubDate": "20260511",
+    "description": "",
+    "fetchedAt": "2026-10-09"
   }
 }
