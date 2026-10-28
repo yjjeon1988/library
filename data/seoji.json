@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-10-27"
+    "fetchedAt": "2026-10-28"
   },
   "y102488221": {
     "ok": true,
@@ -3881,5 +3881,17 @@
     "pubDate": "20260715",
     "description": "",
     "fetchedAt": "2026-10-22"
+  },
+  "y17439565": {
+    "ok": true,
+    "title": "사람, 장소, 환대",
+    "author": "김현경",
+    "isbn13": "9788932027265",
+    "seojiTitle": "사람, 장소, 환대",
+    "seojiAuthor": "김현경",
+    "publisher": "(주)문학과지성사",
+    "pubDate": "20150610",
+    "description": "",
+    "fetchedAt": "2026-10-28"
   }
 }
