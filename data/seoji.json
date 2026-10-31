@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-10-30"
+    "fetchedAt": "2026-10-31"
   },
   "y102488221": {
     "ok": true,
@@ -3893,5 +3893,17 @@
     "pubDate": "20150610",
     "description": "",
     "fetchedAt": "2026-10-28"
+  },
+  "y7141896": {
+    "ok": true,
+    "title": "네빌링",
+    "author": "리그파",
+    "isbn13": "9788997228027",
+    "seojiTitle": "네빌링",
+    "seojiAuthor": "리그파 지음",
+    "publisher": "서른세개의계단",
+    "pubDate": "20120530",
+    "description": "",
+    "fetchedAt": "2026-10-31"
   }
 }
