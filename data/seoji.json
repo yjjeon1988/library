@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-11-13"
+    "fetchedAt": "2026-11-14"
   },
   "y102488221": {
     "ok": true,
@@ -3905,5 +3905,17 @@
     "pubDate": "20120530",
     "description": "",
     "fetchedAt": "2026-10-31"
+  },
+  "y192692878": {
+    "ok": true,
+    "title": "코스모스 : 100만부 기념판",
+    "author": "칼 세이건",
+    "isbn13": "9791124336083",
+    "seojiTitle": "코스모스",
+    "seojiAuthor": "지은이: 칼 세이건 ;옮긴이: 홍승수",
+    "publisher": "사이언스북스",
+    "pubDate": "20260630",
+    "description": "",
+    "fetchedAt": "2026-11-14"
   }
 }
