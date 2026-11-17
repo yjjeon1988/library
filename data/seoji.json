@@ -1444,7 +1444,7 @@
     "title": "누가 내 치즈를 옮겼을까? + 내 치즈는 어디에서 왔을까?",
     "author": "스펜서 존슨",
     "reason": "isbn13 없음",
-    "fetchedAt": "2026-11-16"
+    "fetchedAt": "2026-11-17"
   },
   "y102488221": {
     "ok": true,
@@ -3917,5 +3917,17 @@
     "pubDate": "20260630",
     "description": "",
     "fetchedAt": "2026-11-14"
+  },
+  "y194761987": {
+    "ok": true,
+    "title": "경계인 : AI 시대, 새로운 인재의 조건",
+    "author": "백영재",
+    "isbn13": "9791124746011",
+    "seojiTitle": "경계인",
+    "seojiAuthor": "백영재 지음",
+    "publisher": "세상을바꾸는시간15(세상을바꾸는시간15분)",
+    "pubDate": "20260727",
+    "description": "",
+    "fetchedAt": "2026-11-17"
   }
 }
