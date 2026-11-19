@@ -669,6 +669,9 @@ ${allBooksSorted.map(renderBook).join('\n')}
   .pace-chart-label { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; width: 54px; flex-shrink: 0; }
   .pace-chart-wrap { overflow-x: auto; flex: 1; min-width: 0; }
   .pace-chart-wrap svg, .category-share-wrap svg { display: block; width: 100%; height: auto; }
+  /* 와이드 카드에서 100% 폭으로 늘어나면 글자까지 같이 커지므로, 자연 크기의 ~1.2배 선에서 더 이상 확대되지 않게 막는다. */
+  .pace-chart-wrap svg { max-width: 480px; }
+  .category-share-wrap svg { max-width: 260px; }
   .stats-chart-wrap { position: relative; max-width: 320px; }
   .category-share-wrap { overflow-x: auto; }
   .chart-tooltip {
