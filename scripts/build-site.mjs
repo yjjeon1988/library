@@ -806,6 +806,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
   .author-group-names { color: var(--text-muted); }
   .keyword-cloud {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 7px 15px;
@@ -1366,7 +1367,7 @@ ${yearShelvesHtml}
     </div>` : ''}
     ${keywordCloudHtml ? `<div class="stats-card stats-card--wide">
       <div class="stats-card-title">자주 등장한 키워드</div>
-      <div class="keyword-cloud">${keywordCloudHtml}</div>
+      <div class="keyword-cloud" id="keywordCloud">${keywordCloudHtml}</div>
       <div class="stats-card-note">AI가 정리한 핵심 인사이트에서 자주 등장한 단어를 모았어요. 형태소 분석 없이 간단한 규칙으로 뽑아 완벽하지 않을 수 있어요.</div>
     </div>` : ''}
   </main>
@@ -1532,6 +1533,74 @@ ${yearShelvesHtml}
         });
       });
     });
+
+    // ============ 키워드 클라우드 — 나선형 배치로 겹치지 않게 뭉쳐 보이게 ============
+    (function () {
+      const cloud = document.getElementById('keywordCloud');
+      if (!cloud) return;
+      const chips = Array.from(cloud.querySelectorAll('.keyword-chip'));
+      if (!chips.length) return;
+
+      function layout() {
+        const width = cloud.clientWidth;
+        if (!width) return;
+        // 큰 단어부터 배치해야 가운데부터 뭉친 모양이 잘 나온다. (DOM 순서는 그대로 두고 처리 순서만 바꾼다)
+        const ordered = chips.slice().sort((a, b) => parseFloat(b.style.fontSize) - parseFloat(a.style.fontSize));
+        const placed = [];
+        const centerX = width / 2;
+        const pad = 4;
+
+        function overlaps(r) {
+          return placed.some(p =>
+            r.left - pad < p.right && r.right + pad > p.left &&
+            r.top - pad < p.bottom && r.bottom + pad > p.top
+          );
+        }
+
+        ordered.forEach((chip) => {
+          chip.style.position = 'absolute';
+          chip.style.left = '0px';
+          chip.style.top = '0px';
+          const w = chip.offsetWidth;
+          const h = chip.offsetHeight;
+
+          let angle = 0, radius = 0;
+          let x = centerX - w / 2, y = -h / 2;
+          let tries = 0;
+          while (tries < 4000) {
+            const rect = { left: x, top: y, right: x + w, bottom: y + h };
+            if (x >= 0 && x + w <= width && !overlaps(rect)) break;
+            angle += 0.35;
+            radius += (3 * 0.35) / (2 * Math.PI);
+            x = centerX - w / 2 + radius * Math.cos(angle);
+            y = -h / 2 + radius * Math.sin(angle) * 0.7; // 세로로 덜 퍼지게 눌러서 가로로 긴 카드에 맞춘다
+            tries++;
+          }
+          chip.style.left = Math.round(x) + 'px';
+          chip.style.top = Math.round(y) + 'px';
+          placed.push({ left: x, top: y, right: x + w, bottom: y + h, chip });
+        });
+
+        const minY = Math.min(...placed.map(p => p.top));
+        const maxY = Math.max(...placed.map(p => p.bottom));
+        placed.forEach((p) => { p.chip.style.top = Math.round(p.top - minY) + 'px'; });
+        cloud.style.height = Math.round(maxY - minY) + 'px';
+      }
+
+      // "통계" 탭은 처음엔 display:none 상태라 로드 시점엔 폭을 잴 수 없다 —
+      // 탭이 실제로 보일 때(body[data-view] 변경)마다 다시 시도한다.
+      function tryLayout() {
+        if (document.body.dataset.view === 'stats' && cloud.clientWidth > 0) layout();
+      }
+      tryLayout();
+      new MutationObserver(tryLayout).observe(document.body, { attributes: true, attributeFilter: ['data-view'] });
+
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(tryLayout, 200);
+      });
+    })();
 
     // View toggle
     document.querySelectorAll('.view-toggle button').forEach(btn => {
