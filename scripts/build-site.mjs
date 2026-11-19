@@ -335,6 +335,70 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
   .view-toggle button.active svg { opacity: 1; }
 
+  /* ============ SEARCH ============ */
+  .search-box {
+    position: relative;
+    flex-shrink: 0;
+    width: 220px;
+  }
+  .search-box input {
+    width: 100%;
+    background: rgba(0,0,0,0.38);
+    border: 1px solid var(--line-strong);
+    border-radius: 18px;
+    padding: 8px 34px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-primary);
+  }
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-box input:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 1px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .search-clear {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .search-clear svg { width: 13px; height: 13px; }
+  .search-clear:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+  .search-box.has-value .search-clear { display: flex; }
+  .book-hide { display: none !important; }
+  .shelf-hide { display: none !important; }
+  .search-empty {
+    display: none;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  .search-empty.visible { display: block; }
+  .search-empty strong { color: var(--text-muted); }
+
   .nav-wrap {
     flex: 1;
     overflow-x: auto;
@@ -863,6 +927,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
   @media (max-width: 760px) {
     .topbar-inner { gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
     .brand { font-size: 16px; }
+    .search-box { order: 2; width: 100%; margin-top: 2px; }
     .nav-wrap { order: 3; width: 100%; margin-top: 2px; }
     .hero { padding: 56px 20px 28px; }
     .hero h1 { font-size: 36px; }
@@ -919,6 +984,13 @@ ${allBooksSorted.map(renderBook).join('\n')}
           </button>
         </div>
       </div>
+      <div class="search-box" id="searchBox">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="searchInput" placeholder="제목, 저자 검색" aria-label="도서 검색 (제목, 저자, 카테고리)" autocomplete="off" />
+        <button class="search-clear" id="searchClear" type="button" aria-label="검색어 지우기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
       <nav class="nav-wrap" aria-label="섹션 바로가기">
         <div class="nav-group" id="nav-category">${categoryNavHtml}</div>
         <div class="nav-group" id="nav-year">${yearNavHtml}</div>
@@ -959,6 +1031,8 @@ ${categoryShelvesHtml}
   <main class="shelves" id="view-year">
 ${yearShelvesHtml}
   </main>
+
+  <div class="search-empty" id="searchEmpty">‘<strong id="searchEmptyQuery"></strong>’에 대한 검색 결과가 없어요.</div>
 
   <footer>Built from Notion · ${new Date().toISOString().slice(0, 10)}</footer>
 
@@ -1093,7 +1167,60 @@ ${yearShelvesHtml}
         });
         document.querySelectorAll('.nav-link.active').forEach(l => l.classList.remove('active'));
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        updateSearchEmpty();
       });
+    });
+
+    // ============ SEARCH ============
+    const searchBox = document.getElementById('searchBox');
+    const searchInput = document.getElementById('searchInput');
+    const searchClear = document.getElementById('searchClear');
+    const searchEmpty = document.getElementById('searchEmpty');
+    const searchEmptyQuery = document.getElementById('searchEmptyQuery');
+    const allBooks = Array.from(document.querySelectorAll('.book'));
+
+    function updateSearchEmpty() {
+      const activeMain = document.getElementById('view-' + document.body.dataset.view);
+      const hasVisible = !!activeMain.querySelector('.book:not(.book-hide)');
+      const q = searchInput.value.trim();
+      searchEmpty.classList.toggle('visible', !!q && !hasVisible);
+      searchEmptyQuery.textContent = q;
+    }
+
+    function applySearch() {
+      const q = searchInput.value.trim().toLowerCase();
+      searchBox.classList.toggle('has-value', !!q);
+
+      for (const el of allBooks) {
+        const d = window.BOOK_DATA[el.dataset.key];
+        const haystack = d ? (d.title + ' ' + d.author + ' ' + (d.category || '')).toLowerCase() : el.textContent.toLowerCase();
+        el.classList.toggle('book-hide', !!q && !haystack.includes(q));
+      }
+      document.querySelectorAll('.shelf').forEach(shelf => {
+        const anyVisible = shelf.querySelector('.book:not(.book-hide)');
+        shelf.classList.toggle('shelf-hide', !!q && !anyVisible);
+      });
+      updateSearchEmpty();
+    }
+
+    searchInput.addEventListener('input', applySearch);
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      applySearch();
+      searchInput.focus();
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (searchInput.value) { e.stopPropagation(); searchInput.value = ''; applySearch(); }
+        else searchInput.blur();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      searchInput.focus();
     });
 
     // Scroll-spy: highlight current section in nav
