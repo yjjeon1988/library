@@ -29,6 +29,9 @@ const normalizeCategory = (cat) => CATEGORY_MAP[cat] || cat;
 
 const paletteColors = ['#5c4636', '#6b4f3a', '#4a3a2e', '#5e4838', '#553f30', '#6a4a36', '#4e3c30', '#604838'];
 
+// 연도별 카테고리 비중 차트용 팔레트. 카테고리는 데이터마다 달라지므로 등장 순서(권수 많은 순)로 배정한다.
+const CHART_PALETTE = ['#e0b15c', '#7fa9d6', '#d98f6f', '#7fd39b', '#b79ce0', '#d9c46f', '#e089a8', '#8fb8b0'];
+
 function fallbackCoverSvg(title = '', author = '', idx = 0) {
   const color = paletteColors[idx % paletteColors.length];
   const t = escapeHtml(title.slice(0, 18));
@@ -127,6 +130,83 @@ ${booksHtml}
     </section>`;
 }
 
+// 월별 막대 차트(완독 권수 / 페이지수 공용). SVG <title> 로 호버 시 값을 보여준다(JS 불필요).
+function renderMonthlyBarChart(months, getValue, formatValue, barColor) {
+  const values = months.map(getValue);
+  const maxVal = Math.max(1, ...values);
+  const barW = 22, gap = 12, colW = barW + gap;
+  const padLeft = 2, padRight = 2, padTop = 22, padBottom = 18;
+  const chartH = 110;
+  const width = months.length * colW - gap + padLeft + padRight;
+  const totalH = chartH + padTop + padBottom;
+
+  const bars = months.map((m, idx) => {
+    const v = getValue(m);
+    const h = v > 0 ? Math.max((v / maxVal) * chartH, 3) : 0;
+    const x = padLeft + idx * colW;
+    const y = padTop + chartH - h;
+    const isLast = idx === months.length - 1;
+    const title = `${m.label} · ${formatValue(v)}`;
+    return `<g>
+        <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${barColor}" opacity="${isLast ? 1 : 0.62}"><title>${escapeHtml(title)}</title></rect>
+        ${v > 0 ? `<text x="${x + barW / 2}" y="${y - 6}" text-anchor="middle" font-size="10" fill="var(--text-dim)">${escapeHtml(formatValue(v))}</text>` : ''}
+        <text x="${x + barW / 2}" y="${padTop + chartH + 15}" text-anchor="middle" font-size="10" fill="var(--text-dim)">${escapeHtml(m.label)}</text>
+      </g>`;
+  }).join('\n');
+
+  return `<svg viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" role="img" aria-label="월별 차트">
+      <line x1="${padLeft}" y1="${padTop + chartH}" x2="${width - padRight}" y2="${padTop + chartH}" stroke="var(--line-strong)" stroke-width="1" />
+${bars}
+    </svg>`;
+}
+
+// 연도별 카테고리 비중 100% 누적 막대 차트.
+function renderCategoryShareChart(years, shareByYear, catColor) {
+  const barW = 34, gap = 20, colW = barW + gap;
+  const padLeft = 4, padRight = 4, padTop = 4, padBottom = 18;
+  const chartH = 110;
+  const width = years.length * colW - gap + padLeft + padRight;
+  const totalH = chartH + padTop + padBottom;
+
+  const bars = years.map((yr, idx) => {
+    const counts = shareByYear[yr];
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const x = padLeft + idx * colW;
+    let cum = padTop + chartH;
+    const segs = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([cat, n]) => {
+      const h = total > 0 ? (n / total) * chartH : 0;
+      const y0 = cum - h;
+      cum -= h;
+      const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+      const title = `${yr}년 · ${cat} ${n}권 (${pct}%)`;
+      return `<rect x="${x}" y="${y0}" width="${barW}" height="${Math.max(h, 0)}" fill="${catColor[cat] || '#8a8a8a'}"><title>${escapeHtml(title)}</title></rect>`;
+    }).join('');
+    return `${segs}<text x="${x + barW / 2}" y="${padTop + chartH + 15}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${yr}</text>`;
+  }).join('\n');
+
+  return `<svg viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" role="img" aria-label="연도별 카테고리 비중">
+${bars}
+    </svg>`;
+}
+
+// 피드는 한 줄 요약만 보여준다 — 핵심 인사이트 목록은 클릭 시 모달에서 전체를 본다(329권 전체가 각 3개씩이라
+// 목록까지 피드에 펼치면 한 화면에서 훑어본다는 목적과 어긋나게 페이지가 지나치게 길어진다).
+function renderInsightFeedCard(d, idx) {
+  const cover = d.cover || fallbackCoverSvg(d.title, d.author, idx);
+  const oneLineHtml = d.oneLine
+    ? `<p class="insight-feed-oneline">${escapeHtml(d.oneLine)}</p>` : '';
+  return `      <article class="insight-feed-card" role="button" tabindex="0" data-key="${escapeHtml(d.key)}" aria-label="${escapeHtml(d.title)} 상세 보기">
+        <div class="insight-feed-head">
+          <img class="insight-feed-cover" src="${escapeHtml(cover)}" alt="" width="52" height="78" loading="lazy" />
+          <div class="insight-feed-meta">
+            <div class="insight-feed-title">${escapeHtml(d.title)}</div>
+            <div class="insight-feed-author">${escapeHtml(d.author)}${d.date ? ' · ' + escapeHtml(d.date) : ''}</div>
+          </div>
+        </div>
+${oneLineHtml}
+      </article>`;
+}
+
 async function main() {
   const text = await fs.readFile(CSV_PATH, 'utf-8');
   const books = parseCSV(text);
@@ -185,6 +265,91 @@ async function main() {
 ${allBooksSorted.map(renderBook).join('\n')}
       </div>
     </section>`;
+
+  // ---- 독서 페이스: 최근 12개월 완독 권수 / 페이지수 ----
+  const ymKey = (d) => `${d.year}-${String(d.month).padStart(2, '0')}`;
+  const addMonthsYm = (ym, delta) => {
+    let [y, m] = ym.split('-').map(Number);
+    m += delta;
+    while (m < 1) { m += 12; y--; }
+    while (m > 12) { m -= 12; y++; }
+    return `${y}-${String(m).padStart(2, '0')}`;
+  };
+  const now = new Date();
+  const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const last12 = Array.from({ length: 12 }, (_, i) => addMonthsYm(curYm, i - 11));
+
+  const paceByMonth = {};
+  last12.forEach((ym) => { paceByMonth[ym] = { books: 0, pages: 0, missingPages: 0 }; });
+  for (const b of books) {
+    const d = parseDateInfo(b['완독일']);
+    if (!d) continue;
+    const ym = ymKey(d);
+    if (!(ym in paceByMonth)) continue;
+    const pages = YES24[bookKey(b)]?.pages;
+    paceByMonth[ym].books += 1;
+    if (typeof pages === 'number' && pages > 0) paceByMonth[ym].pages += pages;
+    else paceByMonth[ym].missingPages += 1;
+  }
+  const paceMonths = last12.map((ym, idx) => {
+    const [y, m] = ym.split('-');
+    const monthLabel = `${Number(m)}월`;
+    const label = idx === 0 ? `'${y.slice(2)} ${monthLabel}` : monthLabel;
+    return { ym, label, ...paceByMonth[ym] };
+  });
+  const missingPagesTotal = paceMonths.reduce((s, m) => s + m.missingPages, 0);
+
+  // ---- 연도별 카테고리 비중 ----
+  const shareYears = yearEntries.filter(([y]) => y !== '미기록').map(([y]) => y).sort();
+  const shareByYear = {};
+  shareYears.forEach((y) => { shareByYear[y] = {}; });
+  for (const b of books) {
+    const d = parseDateInfo(b['완독일']);
+    if (!d) continue;
+    const y = String(d.year);
+    if (!(y in shareByYear)) continue;
+    const cat = normalizeCategory(b['구분'] || b['Category'] || '기타');
+    shareByYear[y][cat] = (shareByYear[y][cat] || 0) + 1;
+  }
+  const catColor = {};
+  categoryEntries.forEach(([cat], idx) => { catColor[cat] = CHART_PALETTE[idx % CHART_PALETTE.length]; });
+
+  // ---- 가장 많이 읽은 저자 ----
+  const authorCounts = new Map();
+  for (const b of books) {
+    const author = (b['저자'] || b['Author'] || '').trim();
+    if (!author) continue;
+    authorCounts.set(author, (authorCounts.get(author) || 0) + 1);
+  }
+  const authorTop = [...authorCounts.entries()]
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
+    .slice(0, 10);
+
+  // ---- 인사이트 모아보기 (책 제목과 무관하게 핵심 인사이트만 피드로) ----
+  const seenInsightKeys = new Set();
+  const insightFeedBooks = [];
+  for (const b of allBooksSorted) {
+    const key = bookKey(b);
+    if (seenInsightKeys.has(key)) continue;
+    const d = bookData[key];
+    if (!d || !(d.oneLine || (d.insights && d.insights.length))) continue;
+    seenInsightKeys.add(key);
+    insightFeedBooks.push({ key, ...d });
+  }
+
+  const paceBooksChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.books, (v) => `${v}권`, '#7fa9d6');
+  const pacePagesChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.pages, (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}천` : `${v}`, '#e0b15c');
+  const categoryShareChartHtml = shareYears.length >= 2
+    ? renderCategoryShareChart(shareYears, shareByYear, catColor)
+    : '';
+  const categoryShareLegendHtml = categoryEntries.map(([cat]) =>
+    `<div class="mini-legend-item"><span class="dot" style="background:${catColor[cat]}"></span>${escapeHtml(cat)}</div>`
+  ).join('');
+  const authorTopHtml = authorTop.map(([author, n]) =>
+    `<div class="author-chip"><span class="author-name">${escapeHtml(author)}</span><span class="author-count">${n}권</span></div>`
+  ).join('');
+  const insightFeedHtml = insightFeedBooks.map((d, idx) => renderInsightFeedCard(d, idx)).join('\n');
 
   const categoryShelvesHtml = categoryEntries.map(([cat, bs]) => {
     const booksHtml = bs.map(renderBook).join('\n');
@@ -459,6 +624,94 @@ ${allBooksSorted.map(renderBook).join('\n')}
     font-variant-numeric: tabular-nums;
   }
 
+  /* ============ STATS PANEL (독서 리포트) ============ */
+  .stats-panel {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 8px;
+  }
+  .stats-card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 18px 14px;
+  }
+  .stats-card--wide { grid-column: 1 / -1; }
+  .stats-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .stats-card-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.75;
+    margin-top: 8px;
+  }
+  .pace-charts { display: flex; flex-direction: column; gap: 14px; }
+  .pace-chart-row { display: flex; align-items: center; gap: 10px; }
+  .pace-chart-label { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; width: 54px; flex-shrink: 0; }
+  .pace-chart-wrap { overflow-x: auto; flex: 1; min-width: 0; }
+  .pace-chart-wrap svg, .category-share-wrap svg { display: block; width: 100%; height: auto; }
+  .category-share-wrap { overflow-x: auto; max-width: 320px; }
+  .mini-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; }
+  .mini-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
+  .mini-legend-item .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .author-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .author-chip {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    padding: 6px 11px; border-radius: 999px;
+    background: rgba(201, 168, 118, 0.1); border: 1px solid var(--line);
+  }
+  .author-name { font-size: 12.5px; color: var(--text-primary); font-weight: 600; }
+  .author-count { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  /* ============ 인사이트 모아보기 ============ */
+  .insight-feed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+  }
+  .insight-feed-card {
+    min-width: 0;
+    cursor: pointer;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 18px;
+    transition: border-color 0.2s ease;
+  }
+  .insight-feed-card:hover { border-color: var(--line-strong); }
+  .insight-feed-head { display: flex; gap: 12px; align-items: center; }
+  .insight-feed-cover {
+    width: 40px; aspect-ratio: 2/3; object-fit: cover; border-radius: 2px;
+    background: var(--bg-deep); flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+  .insight-feed-meta { min-width: 0; }
+  .insight-feed-title {
+    font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .insight-feed-author { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
+  .insight-feed-oneline {
+    font-family: 'Nanum Myeongjo', serif;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(127,211,155,0.08);
+    border-left: 3px solid #7fd39b;
+    border-radius: 0 6px 6px 0;
+  }
   /* ============ SHELVES ============ */
   .shelves {
     max-width: 1400px;
@@ -596,15 +849,16 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
 
   /* ============ VIEW SWITCHING ============ */
-  #view-all, #view-category, #view-year { display: none; }
+  #view-all, #view-category, #view-year, #view-insights { display: none; }
   body[data-view="all"] #view-all { display: block; }
   body[data-view="category"] #view-category { display: block; }
   body[data-view="year"] #view-year { display: block; }
+  body[data-view="insights"] #view-insights { display: block; }
   #nav-category, #nav-year { display: none; }
   body[data-view="category"] #nav-category { display: flex; }
   body[data-view="year"] #nav-year { display: flex; }
-  /* 전체 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
-  body[data-view="all"] .nav-wrap { display: none; }
+  /* 전체/인사이트 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
+  body[data-view="all"] .nav-wrap, body[data-view="insights"] .nav-wrap { display: none; }
 
   /* ============ BACK TO TOP ============ */
   .back-to-top {
@@ -855,6 +1109,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .hero { padding: 40px 20px 24px; }
     .hero h1 { font-size: 24px; }
     .hero-stats-line { margin-top: 14px; font-size: 12.5px; }
+    .stats-panel { padding: 0 16px; gap: 14px; margin-bottom: 4px; }
+    .insight-feed-grid { grid-template-columns: 1fr; }
     .shelves { padding: 24px 16px 60px; }
     .shelf { margin-bottom: 56px; }
     .shelf-title { font-size: 22px; }
@@ -898,6 +1154,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             연도
           </button>
+          <button data-view="insights" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            인사이트
+          </button>
         </div>
       </div>
       <div class="search-box" id="searchBox">
@@ -919,6 +1179,32 @@ ${allBooksSorted.map(renderBook).join('\n')}
     <p class="hero-stats-line">${totalBooks}권 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
   </section>
 
+  <section class="stats-panel">
+    <div class="stats-card stats-card--wide">
+      <div class="stats-card-title">독서 페이스 (최근 12개월)</div>
+      <div class="pace-charts">
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">권수</span>
+          <div class="pace-chart-wrap">${paceBooksChartHtml}</div>
+        </div>
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">페이지수</span>
+          <div class="pace-chart-wrap">${pacePagesChartHtml}</div>
+        </div>
+      </div>
+      ${missingPagesTotal > 0 ? `<div class="stats-card-note">※ 페이지수 미확인 ${missingPagesTotal}권은 페이지수 집계에서 제외</div>` : ''}
+    </div>
+    ${categoryShareChartHtml ? `<div class="stats-card">
+      <div class="stats-card-title">연도별 관심사 변화</div>
+      <div class="category-share-wrap">${categoryShareChartHtml}</div>
+      <div class="mini-legend">${categoryShareLegendHtml}</div>
+    </div>` : ''}
+    ${authorTopHtml ? `<div class="stats-card">
+      <div class="stats-card-title">가장 많이 읽은 저자</div>
+      <div class="author-chip-grid">${authorTopHtml}</div>
+    </div>` : ''}
+  </section>
+
   <main class="shelves" id="view-all">
 ${allShelfHtml}
   </main>
@@ -929,6 +1215,12 @@ ${categoryShelvesHtml}
 
   <main class="shelves" id="view-year">
 ${yearShelvesHtml}
+  </main>
+
+  <main class="shelves" id="view-insights">
+    <div class="insight-feed-grid">
+${insightFeedHtml}
+    </div>
   </main>
 
   <div class="search-empty" id="searchEmpty">‘<strong id="searchEmptyQuery"></strong>’에 대한 검색 결과가 없어요.</div>
@@ -1041,13 +1333,13 @@ ${yearShelvesHtml}
       }
 
       document.addEventListener('click', (e) => {
-        const card = e.target.closest('.book');
+        const card = e.target.closest('.book, .insight-feed-card');
         if (card && card.dataset.key) { open(card.dataset.key); return; }
         if (e.target === backdrop || e.target.closest('#modalClose')) close();
       });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !backdrop.hidden) close();
-        const card = e.target.closest && e.target.closest('.book');
+        const card = e.target.closest && e.target.closest('.book, .insight-feed-card');
         if (card && card.dataset.key && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault(); open(card.dataset.key);
         }
@@ -1079,6 +1371,7 @@ ${yearShelvesHtml}
     const allBooks = Array.from(document.querySelectorAll('.book'));
 
     function updateSearchEmpty() {
+      if (document.body.dataset.view === 'insights') { searchEmpty.classList.remove('visible'); return; }
       const activeMain = document.getElementById('view-' + document.body.dataset.view);
       const hasVisible = !!activeMain.querySelector('.book:not(.book-hide)');
       const q = searchInput.value.trim();
@@ -1128,7 +1421,7 @@ ${yearShelvesHtml}
         if (!entry.isIntersecting) continue;
         const id = entry.target.id;
         const activeView = document.body.dataset.view;
-        if (activeView === 'all') continue;
+        if (activeView === 'all' || activeView === 'insights') continue;
         const scope = activeView === 'category' ? '#nav-category' : '#nav-year';
         const container = document.querySelector(scope);
         if (!container) continue;

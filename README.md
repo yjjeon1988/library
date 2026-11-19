@@ -12,14 +12,14 @@
 도서/
 ├── data/
 │   ├── books.csv               # 노션 API로 자동 동기화
-│   ├── yes24.json              # yes24 목차·평점·ISBN (자동 스크래핑, 증분)
+│   ├── yes24.json              # yes24 목차·평점·ISBN·쪽수 (자동 스크래핑, 증분)
 │   ├── seoji.json              # 국립중앙도서관 책소개 (자동 수집, 증분)
 │   └── insights.json           # 책별 AI 핵심 인사이트 (자동 생성, 증분)
 ├── covers/                     # yes24 표지 (신규분만 자동 스크래핑)
 ├── scripts/
 │   ├── sync-from-notion.mjs    # 노션 API → CSV
 │   ├── scrape-covers.mjs       # yes24 → 이미지
-│   ├── scrape-yes24.mjs        # yes24 → 목차·평점·ISBN
+│   ├── scrape-yes24.mjs        # yes24 → 목차·평점·ISBN·쪽수
 │   ├── enrich-seoji.mjs        # 국립중앙도서관 seoji API → 책소개
 │   ├── generate-insights.mjs   # Gemini API → 핵심 인사이트
 │   └── build-site.mjs          # CSV + 이미지 + 평점 + 목차 + 인사이트 → HTML
@@ -43,11 +43,17 @@
 즉시 반영하고 싶으면 **[여기서 수동 실행](https://github.com/yjjeon1988/library/actions/workflows/deploy.yml)** → 우측 "Run workflow" 버튼 클릭.
 (로그인 상태여야 버튼이 보인다. GitHub 정책상 클릭 한 번으로 바로 실행되는 링크는 만들 수 없다 — 최소 이 버튼 클릭은 필요하다.)
 
+## 검색 & 독서 통계
+
+- 상단바 검색창으로 제목·저자·카테고리를 실시간 필터링 (`/` 키로 포커스).
+- 히어로 아래 **독서 페이스**(최근 12개월 권수·페이지수 추이), **연도별 관심사 변화**(카테고리 비중), **가장 많이 읽은 저자**를 모두 `data/books.csv` + `data/yes24.json`의 쪽수에서 빌드 시점에 계산해 보여준다 — 별도 수집 스크립트 없이 `build-site.mjs`가 직접 집계.
+- 보기 전환에 **인사이트** 탭 추가 — 책마다 모달에 묻혀 있던 한 줄 요약을 한 페이지에서 모아 훑어볼 수 있다 (클릭하면 기존 모달로 핵심 인사이트·목차까지 상세 확인).
+
 ## 평점 & 핵심 인사이트
 
 책 표지를 **클릭**하면 상세 모달이 열린다 — yes24 평점 ⭐, 한 줄 요약, 핵심 인사이트, 목차, yes24 링크.
 
-- **평점(⭐)** — yes24 상품 페이지에서 스크래핑(0~10 스케일). 제목 앞 별점 + 모달에 표시. `scrape-yes24.mjs`가 신규 책만 증분 수집해 `data/yes24.json`에 캐시(목차·ISBN13도 함께).
+- **평점(⭐)** — yes24 상품 페이지에서 스크래핑(0~10 스케일). 제목 앞 별점 + 모달에 표시. `scrape-yes24.mjs`가 신규 책만 증분 수집해 `data/yes24.json`에 캐시(목차·ISBN13·쪽수도 함께).
 - **목차** — 같은 yes24 스크래핑에서 함께 수집. 모달에서 부/장은 굵게, 세부 항목은 들여쓰기로 표시. 목차가 없는 책(소설·에세이 등)은 국립중앙도서관 책 소개로 폴백.
 - **핵심 인사이트** — 국립중앙도서관 책소개를 근거로 [Google Gemini API](https://aistudio.google.com/apikey)(무료 티어, 기본 `gemini-3.5-flash-lite`)가 자동 생성해 `data/insights.json`에 저장. `generate-insights.mjs`가 신규 책만 증분 생성. 인사이트가 있는 책은 표지 우상단에 초록 점(●) 표시.
   - 책소개가 없는 책(ISBN 미확보, 검색 실패 등)은 건너뛰고, 다음 날 정보가 채워지면 자동으로 다시 시도된다.

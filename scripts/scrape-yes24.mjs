@@ -1,4 +1,4 @@
-// yes24 상품 페이지에서 목차·평점·ISBN13·책소개를 스크래핑해 data/yes24.json 에 캐시한다.
+// yes24 상품 페이지에서 목차·평점·ISBN13·책소개·쪽수를 스크래핑해 data/yes24.json 에 캐시한다.
 // (구 scrape-toc.mjs 확장 — 알라딘 OpenAPI 종료로 평점·ISBN13·책소개도 같은 페이지에서 함께 수집)
 // - description은 국립중앙도서관 seoji API 책소개가 없는 책(약 83%)의 폴백으로 쓰인다
 //   (enrich-seoji.mjs, build-site.mjs 참고). seoji가 커버리지 낮음 — yes24 자체 소개가 사실상 원 소스.
@@ -64,6 +64,12 @@ function parseIsbn13(html) {
   return m ? m[1] : null;
 }
 
+// "쪽수, 무게, 크기" 행에서 쪽수만 추출 (예: "228쪽 | 322g | 131*198*13mm" → 228)
+function parsePages(html) {
+  const m = html.match(/쪽수[^<]*<\/th>\s*<td[^>]*>\s*(\d+)\s*쪽/);
+  return m ? Number(m[1]) : null;
+}
+
 // 책소개 HTML(id="infoset_introduce" 영역의 textarea) → 정제된 텍스트.
 function parseDescription(html) {
   const start = html.indexOf('id="infoset_introduce"');
@@ -90,6 +96,7 @@ async function fetchYes24(pid) {
     rating: parseRating(html),
     isbn13: parseIsbn13(html),
     description: parseDescription(html),
+    pages: parsePages(html),
   };
 }
 
@@ -107,7 +114,7 @@ async function main() {
     const pid = extractYes24ProductId(b['링크'] || b['Link'] || '');
     if (!pid) continue;
     const key = bookKey(b);
-    if (!FORCE && cache[key]) { skipped++; continue; }
+    if (!FORCE && cache[key] && cache[key].pages !== undefined) { skipped++; continue; }
 
     try {
       const data = await fetchYes24(pid);
