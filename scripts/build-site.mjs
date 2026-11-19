@@ -326,10 +326,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
     if (!author) continue;
     authorCounts.set(author, (authorCounts.get(author) || 0) + 1);
   }
+  // 권수별로 묶어서 보여주므로(아래 authorGroups) 10명 제한 없이 2권 이상 읽은 저자를 전부 포함한다.
   const authorTop = [...authorCounts.entries()]
     .filter(([, n]) => n >= 2)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
-    .slice(0, 10);
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
 
   const paceBooksChartHtml24 = renderMonthlyBarChart(paceMonths24, (m) => m.books, (v) => `${v}`, '#7fa9d6');
   const pacePagesChartHtml24 = renderMonthlyBarChart(paceMonths24, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
@@ -1246,37 +1246,37 @@ ${yearShelvesHtml}
       </div>
       <div class="pace-charts" data-pace-range="12" hidden>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">권수<small>단위: 권</small></span>
+          <span class="pace-chart-label">권수<small>(단위: 권)</small></span>
           <div class="pace-chart-wrap">${paceBooksChartHtml12}</div>
         </div>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
+          <span class="pace-chart-label">쪽수<small>(단위: 천쪽)</small></span>
           <div class="pace-chart-wrap">${pacePagesChartHtml12}</div>
         </div>
       </div>
       <div class="pace-charts" data-pace-range="24">
         <div class="pace-chart-row">
-          <span class="pace-chart-label">권수<small>단위: 권</small></span>
+          <span class="pace-chart-label">권수<small>(단위: 권)</small></span>
           <div class="pace-chart-wrap">${paceBooksChartHtml24}</div>
         </div>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
+          <span class="pace-chart-label">쪽수<small>(단위: 천쪽)</small></span>
           <div class="pace-chart-wrap">${pacePagesChartHtml24}</div>
         </div>
       </div>
       <div class="pace-charts" data-pace-range="all" hidden>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">권수<small>단위: 권</small></span>
+          <span class="pace-chart-label">권수<small>(단위: 권)</small></span>
           <div class="pace-chart-wrap">${paceBooksYearlyHtml}</div>
         </div>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
+          <span class="pace-chart-label">쪽수<small>(단위: 천쪽)</small></span>
           <div class="pace-chart-wrap">${pacePagesYearlyHtml}</div>
         </div>
       </div>
-      ${missingPagesTotal12 > 0 ? `<div class="stats-card-note" data-pace-range="12" hidden>※ 페이지수 미확인 ${missingPagesTotal12}권은 페이지수 집계에서 제외</div>` : ''}
-      ${missingPagesTotal24 > 0 ? `<div class="stats-card-note" data-pace-range="24">※ 페이지수 미확인 ${missingPagesTotal24}권은 페이지수 집계에서 제외</div>` : ''}
-      ${missingPagesTotalAll > 0 ? `<div class="stats-card-note" data-pace-range="all" hidden>※ 페이지수 미확인 ${missingPagesTotalAll}권은 페이지수 집계에서 제외</div>` : ''}
+      ${missingPagesTotal12 > 0 ? `<div class="stats-card-note" data-pace-range="12" hidden>※ 쪽수 미확인 ${missingPagesTotal12}권은 쪽수 집계에서 제외</div>` : ''}
+      ${missingPagesTotal24 > 0 ? `<div class="stats-card-note" data-pace-range="24">※ 쪽수 미확인 ${missingPagesTotal24}권은 쪽수 집계에서 제외</div>` : ''}
+      ${missingPagesTotalAll > 0 ? `<div class="stats-card-note" data-pace-range="all" hidden>※ 쪽수 미확인 ${missingPagesTotalAll}권은 쪽수 집계에서 제외</div>` : ''}
     </div>
     ${categoryShareChartHtml ? `<div class="stats-card">
       <div class="stats-card-title">연도별 관심사 변화</div>
