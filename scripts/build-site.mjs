@@ -177,11 +177,12 @@ function renderCategoryShareChart(years, shareByYear, catColor) {
       const h = total > 0 ? (n / total) * chartH : 0;
       const y0 = cum - h;
       cum -= h;
-      const pct = total > 0 ? Math.round((n / total) * 100) : 0;
-      const title = `${yr}년 · ${cat} ${n}권 (${pct}%)`;
-      return `<rect x="${x}" y="${y0}" width="${barW}" height="${Math.max(h, 0)}" fill="${catColor[cat] || '#8a8a8a'}"><title>${escapeHtml(title)}</title></rect>`;
+      return `<rect x="${x}" y="${y0}" width="${barW}" height="${Math.max(h, 0)}" fill="${catColor[cat] || '#8a8a8a'}"></rect>`;
     }).join('');
-    return `${segs}<text x="${x + barW / 2}" y="${padTop + chartH + 15}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${yr}</text>`;
+    const yearLabel = `<text x="${x + barW / 2}" y="${padTop + chartH + 15}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${yr}</text>`;
+    // 연도 전체(칼럼 전체 높이)를 한 번에 덮는 투명 히트 영역 — 세그먼트마다가 아니라 연도 전체를 한 번에 보여준다.
+    const hover = `<rect class="share-hover" data-year="${yr}" x="${x}" y="${padTop}" width="${barW}" height="${chartH}" fill="transparent"></rect>`;
+    return `${segs}${yearLabel}${hover}`;
   }).join('\n');
 
   return `<svg viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" role="img" aria-label="연도별 카테고리 비중">
@@ -346,6 +347,15 @@ ${allBooksSorted.map(renderBook).join('\n')}
   const categoryShareLegendHtml = categoryEntries.map(([cat]) =>
     `<div class="mini-legend-item"><span class="dot" style="background:${catColor[cat]}"></span>${escapeHtml(cat)}</div>`
   ).join('');
+  // 연도 호버 시 카테고리 전체를 한 번에 보여줄 툴팁 데이터 (클라이언트에서 조립).
+  const categoryShareTooltipData = {};
+  shareYears.forEach((yr) => {
+    const counts = shareByYear[yr];
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    categoryShareTooltipData[yr] = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, n]) => ({ cat, color: catColor[cat], count: n, pct: total > 0 ? Math.round((n / total) * 100) : 0 }));
+  });
   const authorTopHtml = authorTop.map(([author, n]) =>
     `<div class="author-chip"><span class="author-name">${escapeHtml(author)}</span><span class="author-count">${n}권</span></div>`
   ).join('');
@@ -628,11 +638,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
   .stats-panel {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 32px;
+    padding: 32px 32px 80px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 20px;
-    margin-bottom: 8px;
   }
   .stats-card {
     background: var(--bg-card);
@@ -660,7 +669,30 @@ ${allBooksSorted.map(renderBook).join('\n')}
   .pace-chart-label { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; width: 54px; flex-shrink: 0; }
   .pace-chart-wrap { overflow-x: auto; flex: 1; min-width: 0; }
   .pace-chart-wrap svg, .category-share-wrap svg { display: block; width: 100%; height: auto; }
-  .category-share-wrap { overflow-x: auto; max-width: 320px; }
+  .stats-chart-wrap { position: relative; max-width: 320px; }
+  .category-share-wrap { overflow-x: auto; }
+  .chart-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: linear-gradient(180deg, #34200f, #2a1a0d);
+    color: var(--text-primary);
+    border: 1px solid rgba(201, 168, 118, 0.22);
+    font-size: 12px;
+    line-height: 1.55;
+    padding: 8px 12px;
+    border-radius: 9px;
+    box-shadow: 0 12px 26px rgba(0,0,0,0.45);
+    white-space: nowrap;
+    z-index: 20;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+  .chart-tooltip.show { opacity: 1; transform: translateY(0); }
+  .chart-tooltip b { display: block; margin-bottom: 4px; font-weight: 700; }
+  .chart-tooltip .tooltip-row { display: flex; align-items: center; gap: 6px; }
+  .chart-tooltip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .share-hover { cursor: default; }
   .mini-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; }
   .mini-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
   .mini-legend-item .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
@@ -849,16 +881,17 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
 
   /* ============ VIEW SWITCHING ============ */
-  #view-all, #view-category, #view-year, #view-insights { display: none; }
+  #view-all, #view-category, #view-year, #view-insights, #view-stats { display: none; }
   body[data-view="all"] #view-all { display: block; }
   body[data-view="category"] #view-category { display: block; }
   body[data-view="year"] #view-year { display: block; }
   body[data-view="insights"] #view-insights { display: block; }
+  body[data-view="stats"] #view-stats { display: grid; }
   #nav-category, #nav-year { display: none; }
   body[data-view="category"] #nav-category { display: flex; }
   body[data-view="year"] #nav-year { display: flex; }
-  /* 전체/인사이트 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
-  body[data-view="all"] .nav-wrap, body[data-view="insights"] .nav-wrap { display: none; }
+  /* 전체/인사이트/통계 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
+  body[data-view="all"] .nav-wrap, body[data-view="insights"] .nav-wrap, body[data-view="stats"] .nav-wrap { display: none; }
 
   /* ============ BACK TO TOP ============ */
   .back-to-top {
@@ -1104,12 +1137,21 @@ ${allBooksSorted.map(renderBook).join('\n')}
   @media (max-width: 760px) {
     .topbar-inner { gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
     .brand { font-size: 16px; }
+    .view-switch {
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+              mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+    }
+    .view-switch::-webkit-scrollbar { display: none; }
     .search-box { order: 2; width: 100%; margin-top: 2px; }
     .nav-wrap { order: 3; width: 100%; margin-top: 2px; }
     .hero { padding: 40px 20px 24px; }
     .hero h1 { font-size: 24px; }
     .hero-stats-line { margin-top: 14px; font-size: 12.5px; }
-    .stats-panel { padding: 0 16px; gap: 14px; margin-bottom: 4px; }
+    .stats-panel { padding: 24px 16px 60px; gap: 14px; }
     .insight-feed-grid { grid-template-columns: 1fr; }
     .shelves { padding: 24px 16px 60px; }
     .shelf { margin-bottom: 56px; }
@@ -1154,6 +1196,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             연도
           </button>
+          <button data-view="stats" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            통계
+          </button>
           <button data-view="insights" role="tab" aria-selected="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             인사이트
@@ -1179,32 +1225,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     <p class="hero-stats-line">${totalBooks}권 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
   </section>
 
-  <section class="stats-panel">
-    <div class="stats-card stats-card--wide">
-      <div class="stats-card-title">독서 페이스 (최근 12개월)</div>
-      <div class="pace-charts">
-        <div class="pace-chart-row">
-          <span class="pace-chart-label">권수</span>
-          <div class="pace-chart-wrap">${paceBooksChartHtml}</div>
-        </div>
-        <div class="pace-chart-row">
-          <span class="pace-chart-label">페이지수</span>
-          <div class="pace-chart-wrap">${pacePagesChartHtml}</div>
-        </div>
-      </div>
-      ${missingPagesTotal > 0 ? `<div class="stats-card-note">※ 페이지수 미확인 ${missingPagesTotal}권은 페이지수 집계에서 제외</div>` : ''}
-    </div>
-    ${categoryShareChartHtml ? `<div class="stats-card">
-      <div class="stats-card-title">연도별 관심사 변화</div>
-      <div class="category-share-wrap">${categoryShareChartHtml}</div>
-      <div class="mini-legend">${categoryShareLegendHtml}</div>
-    </div>` : ''}
-    ${authorTopHtml ? `<div class="stats-card">
-      <div class="stats-card-title">가장 많이 읽은 저자</div>
-      <div class="author-chip-grid">${authorTopHtml}</div>
-    </div>` : ''}
-  </section>
-
   <main class="shelves" id="view-all">
 ${allShelfHtml}
   </main>
@@ -1221,6 +1241,35 @@ ${yearShelvesHtml}
     <div class="insight-feed-grid">
 ${insightFeedHtml}
     </div>
+  </main>
+
+  <main class="stats-panel" id="view-stats">
+    <div class="stats-card stats-card--wide">
+      <div class="stats-card-title">독서 페이스 (최근 12개월)</div>
+      <div class="pace-charts">
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">권수</span>
+          <div class="pace-chart-wrap">${paceBooksChartHtml}</div>
+        </div>
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">페이지수</span>
+          <div class="pace-chart-wrap">${pacePagesChartHtml}</div>
+        </div>
+      </div>
+      ${missingPagesTotal > 0 ? `<div class="stats-card-note">※ 페이지수 미확인 ${missingPagesTotal}권은 페이지수 집계에서 제외</div>` : ''}
+    </div>
+    ${categoryShareChartHtml ? `<div class="stats-card">
+      <div class="stats-card-title">연도별 관심사 변화</div>
+      <div class="stats-chart-wrap">
+        <div class="category-share-wrap">${categoryShareChartHtml}</div>
+        <div class="chart-tooltip" id="shareTooltip"></div>
+      </div>
+      <div class="mini-legend">${categoryShareLegendHtml}</div>
+    </div>` : ''}
+    ${authorTopHtml ? `<div class="stats-card">
+      <div class="stats-card-title">가장 많이 읽은 저자</div>
+      <div class="author-chip-grid">${authorTopHtml}</div>
+    </div>` : ''}
   </main>
 
   <div class="search-empty" id="searchEmpty">‘<strong id="searchEmptyQuery"></strong>’에 대한 검색 결과가 없어요.</div>
@@ -1254,6 +1303,7 @@ ${insightFeedHtml}
 
   <script>
     window.BOOK_DATA = ${JSON.stringify(bookData).replace(/</g, '\\u003c')};
+    window.CATEGORY_SHARE_DATA = ${JSON.stringify(categoryShareTooltipData).replace(/</g, '\\u003c')};
   </script>
   <script>
     // ============ BOOK MODAL ============
@@ -1346,6 +1396,29 @@ ${insightFeedHtml}
       });
     })();
 
+    // ============ 연도별 관심사 변화 — 호버 시 연도 전체를 한 번에 보여주는 툴팁 ============
+    (function () {
+      const tooltip = document.getElementById('shareTooltip');
+      if (!tooltip) return;
+      const wrap = tooltip.closest('.stats-chart-wrap');
+      document.querySelectorAll('.share-hover').forEach((hoverRect) => {
+        const rows = (window.CATEGORY_SHARE_DATA && window.CATEGORY_SHARE_DATA[hoverRect.dataset.year]) || [];
+        const total = rows.reduce((s, r) => s + r.count, 0);
+        const html = '<b>' + hoverRect.dataset.year + '년</b>' +
+          rows.map((r) => '<div class="tooltip-row"><span class="dot" style="background:' + r.color + '"></span>' +
+            r.cat + ' ' + r.count + '권 · ' + r.pct + '%</div>').join('') +
+          '<div class="tooltip-row" style="margin-top:4px;opacity:.75">합계 ' + total + '권</div>';
+        hoverRect.addEventListener('mousemove', (evt) => {
+          tooltip.innerHTML = html;
+          const rect = wrap.getBoundingClientRect();
+          tooltip.style.left = (evt.clientX - rect.left + 12) + 'px';
+          tooltip.style.top = (evt.clientY - rect.top - 10) + 'px';
+          tooltip.classList.add('show');
+        });
+        hoverRect.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+      });
+    })();
+
     // View toggle
     document.querySelectorAll('.view-toggle button').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1371,7 +1444,7 @@ ${insightFeedHtml}
     const allBooks = Array.from(document.querySelectorAll('.book'));
 
     function updateSearchEmpty() {
-      if (document.body.dataset.view === 'insights') { searchEmpty.classList.remove('visible'); return; }
+      if (document.body.dataset.view === 'insights' || document.body.dataset.view === 'stats') { searchEmpty.classList.remove('visible'); return; }
       const activeMain = document.getElementById('view-' + document.body.dataset.view);
       const hasVisible = !!activeMain.querySelector('.book:not(.book-hide)');
       const q = searchInput.value.trim();
@@ -1421,7 +1494,7 @@ ${insightFeedHtml}
         if (!entry.isIntersecting) continue;
         const id = entry.target.id;
         const activeView = document.body.dataset.view;
-        if (activeView === 'all' || activeView === 'insights') continue;
+        if (activeView === 'all' || activeView === 'insights' || activeView === 'stats') continue;
         const scope = activeView === 'category' ? '#nav-category' : '#nav-year';
         const container = document.querySelector(scope);
         if (!container) continue;
