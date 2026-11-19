@@ -331,6 +331,65 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .filter(([, n]) => n >= 2)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
 
+  // ---- 자주 등장한 키워드 (AI 인사이트 텍스트에서 추출) ----
+  // 형태소 분석기 없이 흔한 조사만 떼어내는 간이 방식이라 완벽하지 않다 — 워드클라우드용 근사치.
+  const JOSA_LIST = [
+    '에게서', '로부터', '에서부터', '으로서', '으로써', '한테서',
+    '이라는', '라는', '이라고', '라고', '이라도', '라도', '이지만', '지만',
+    '이며', '이면서', '면서', '이라면', '라면', '로서', '로써',
+    '에게', '에서', '까지', '부터', '보다', '처럼', '마저', '조차', '만큼', '한테',
+    '으로', '에는', '와는', '과는',
+    '은', '는', '이', '가', '을', '를', '의', '에', '와', '과', '도', '만', '나', '로',
+  ].sort((a, b) => b.length - a.length);
+  const JOSA_RE = new RegExp(`(${JOSA_LIST.join('|')})$`);
+  const KEYWORD_STOPWORDS = new Set([
+    '그리고', '하지만', '그러나', '그래서', '또는', '그런데', '때문', '위해', '통해', '대해', '대한', '통한', '관련',
+    '것', '것은', '것이', '것을', '것도', '것이다', '수', '때', '등', '중', '후', '전', '안', '밖', '위', '아래',
+    '하는', '하지', '해서', '했다', '한다', '되는', '된다', '있다', '없다', '있는', '없는', '같은', '이런', '저런',
+    '그런', '어떤', '모든', '매우', '아주', '바로', '먼저', '어떻게', '자체', '스스', '스스로', '자신', '우리',
+    '당신', '사람', '이것', '저것', '그것', '여기', '저기', '거기', '하나', '모두', '또한', '오히려', '결국',
+    '이제', '지금', '이후', '이전', '책은', '저자는', '저자가', '아니라', '아니다', '아니', '가능한', '가능하다',
+    '일을', '함께', '좋은', '진짜', '실제', '무엇', '만드는', '만드', '만든다', '나온다', '나오는', '않는다',
+    '않는', '않고', '일하',
+  ]);
+  const keywordCounts = new Map();
+  for (const key of Object.keys(INSIGHTS)) {
+    const ins = INSIGHTS[key];
+    const sentences = [ins.oneLine, ...(Array.isArray(ins.insights) ? ins.insights : [])].filter(Boolean);
+    for (const sentence of sentences) {
+      const rawTokens = sentence.split(/[\s,.!?·"'“”‘’()[\]{}:;~\-–—/\\|<>«»]+/u).filter(Boolean);
+      for (let tok of rawTokens) {
+        tok = tok.replace(/^[^가-힣a-zA-Z0-9]+|[^가-힣a-zA-Z0-9]+$/gu, '');
+        if (!tok || /^[0-9]+$/.test(tok) || KEYWORD_STOPWORDS.has(tok)) continue;
+        const stripped = tok.replace(JOSA_RE, '') || tok;
+        if (stripped.length < 2 || KEYWORD_STOPWORDS.has(stripped)) continue;
+        keywordCounts.set(stripped, (keywordCounts.get(stripped) || 0) + 1);
+      }
+    }
+  }
+  const keywordRanked = [...keywordCounts.entries()]
+    .filter(([, n]) => n >= 3)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 60);
+  const keywordMax = keywordRanked[0]?.[1] || 1;
+  const keywordMin = keywordRanked[keywordRanked.length - 1]?.[1] || 1;
+  const keywordFontSize = (n) => keywordMax === keywordMin
+    ? 18
+    : Math.round(13 + ((n - keywordMin) / (keywordMax - keywordMin)) * (32 - 13));
+  const keywordTiered = keywordRanked.map(([word, n], idx) => {
+    const pct = keywordRanked.length <= 1 ? 0 : idx / (keywordRanked.length - 1);
+    const tier = pct < 0.2 ? 1 : pct < 0.5 ? 2 : 3;
+    return { word, n, tier };
+  });
+  // 빈도순 나열은 지루하므로 표시 순서만 섞는다 (크기/색 농도는 이미 빈도 기반으로 고정됨).
+  for (let i = keywordTiered.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [keywordTiered[i], keywordTiered[j]] = [keywordTiered[j], keywordTiered[i]];
+  }
+  const keywordCloudHtml = keywordTiered.map(({ word, n, tier }) =>
+    `<span class="keyword-chip tier-${tier}" style="font-size:${keywordFontSize(n)}px" title="${escapeHtml(word)} · ${n}회">${escapeHtml(word)}</span>`
+  ).join('');
+
   const paceBooksChartHtml24 = renderMonthlyBarChart(paceMonths24, (m) => m.books, (v) => `${v}`, '#7fa9d6');
   const pacePagesChartHtml24 = renderMonthlyBarChart(paceMonths24, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
   const paceBooksChartHtml12 = renderMonthlyBarChart(paceMonths12, (m) => m.books, (v) => `${v}`, '#7fa9d6');
@@ -746,6 +805,21 @@ ${allBooksSorted.map(renderBook).join('\n')}
     color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums;
   }
   .author-group-names { color: var(--text-muted); }
+  .keyword-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 15px;
+    align-items: baseline;
+    line-height: 1.3;
+  }
+  .keyword-chip {
+    font-family: 'Nanum Myeongjo', serif;
+    cursor: default;
+    white-space: nowrap;
+  }
+  .keyword-chip.tier-1 { color: var(--text-primary); font-weight: 700; }
+  .keyword-chip.tier-2 { color: var(--text-muted); font-weight: 600; }
+  .keyword-chip.tier-3 { color: var(--text-dim); font-weight: 500; }
 
   /* ============ SHELVES ============ */
   .shelves {
@@ -1289,6 +1363,11 @@ ${yearShelvesHtml}
     ${authorTopHtml ? `<div class="stats-card">
       <div class="stats-card-title">가장 많이 읽은 저자</div>
       <div class="author-groups">${authorTopHtml}</div>
+    </div>` : ''}
+    ${keywordCloudHtml ? `<div class="stats-card stats-card--wide">
+      <div class="stats-card-title">자주 등장한 키워드</div>
+      <div class="keyword-cloud">${keywordCloudHtml}</div>
+      <div class="stats-card-note">AI가 정리한 핵심 인사이트에서 자주 등장한 단어를 모았어요. 형태소 분석 없이 간단한 규칙으로 뽑아 완벽하지 않을 수 있어요.</div>
     </div>` : ''}
   </main>
 
