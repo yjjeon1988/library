@@ -249,7 +249,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
       </div>
     </section>`;
 
-  // ---- 독서 페이스: 최근 24개월 완독 권수 / 페이지수 ----
+  // ---- 독서 페이스: 최근 N개월 완독 권수 / 페이지수 ----
   const PACE_MONTH_COUNT = 24;
   const ymKey = (d) => `${d.year}-${String(d.month).padStart(2, '0')}`;
   const addMonthsYm = (ym, delta) => {
@@ -275,13 +275,17 @@ ${allBooksSorted.map(renderBook).join('\n')}
     if (typeof pages === 'number' && pages > 0) paceByMonth[ym].pages += pages;
     else paceByMonth[ym].missingPages += 1;
   }
-  const paceMonths = paceYms.map((ym, idx) => {
+  // 월 목록의 슬라이스(최근 12개월/24개월)마다 '첫 칸 또는 1월'에 연도를 붙이는 라벨을 새로 계산한다.
+  const buildPaceMonths = (yms) => yms.map((ym, idx) => {
     const [y, m] = ym.split('-');
     const monthNum = Number(m);
     const label = (idx === 0 || monthNum === 1) ? `'${y.slice(2)} ${monthNum}` : `${monthNum}`;
     return { ym, label, ...paceByMonth[ym] };
   });
-  const missingPagesTotal = paceMonths.reduce((s, m) => s + m.missingPages, 0);
+  const paceMonths24 = buildPaceMonths(paceYms);
+  const paceMonths12 = buildPaceMonths(paceYms.slice(-12));
+  const missingPagesTotal24 = paceMonths24.reduce((s, m) => s + m.missingPages, 0);
+  const missingPagesTotal12 = paceMonths12.reduce((s, m) => s + m.missingPages, 0);
 
   // ---- 독서 페이스(전체 기간, 연도별 집계) ----
   const paceYearsAll = yearEntries.filter(([y]) => y !== '미기록').map(([y]) => y).sort();
@@ -327,8 +331,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
     .slice(0, 10);
 
-  const paceBooksChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.books, (v) => `${v}`, '#7fa9d6');
-  const pacePagesChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
+  const paceBooksChartHtml24 = renderMonthlyBarChart(paceMonths24, (m) => m.books, (v) => `${v}`, '#7fa9d6');
+  const pacePagesChartHtml24 = renderMonthlyBarChart(paceMonths24, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
+  const paceBooksChartHtml12 = renderMonthlyBarChart(paceMonths12, (m) => m.books, (v) => `${v}`, '#7fa9d6');
+  const pacePagesChartHtml12 = renderMonthlyBarChart(paceMonths12, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
   const paceBooksYearlyHtml = renderMonthlyBarChart(paceYearsData, (y) => y.books, (v) => `${v}`, '#7fa9d6', { barW: 70, gap: 40 });
   const pacePagesYearlyHtml = renderMonthlyBarChart(paceYearsData, (y) => y.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c', { barW: 70, gap: 40 });
   const categoryShareChartHtml = shareYears.length >= 2
@@ -1225,18 +1231,29 @@ ${yearShelvesHtml}
       <div class="stats-card-head-row">
         <div class="stats-card-title">독서 페이스</div>
         <div class="pace-range-toggle" role="tablist">
-          <button type="button" data-pace-range="recent" class="active" role="tab" aria-selected="true">최근 24개월</button>
+          <button type="button" data-pace-range="12" role="tab" aria-selected="false">최근 12개월</button>
+          <button type="button" data-pace-range="24" class="active" role="tab" aria-selected="true">최근 24개월</button>
           <button type="button" data-pace-range="all" role="tab" aria-selected="false">연도별 전체</button>
         </div>
       </div>
-      <div class="pace-charts" data-pace-range="recent">
+      <div class="pace-charts" data-pace-range="12" hidden>
         <div class="pace-chart-row">
           <span class="pace-chart-label">권수<small>단위: 권</small></span>
-          <div class="pace-chart-wrap">${paceBooksChartHtml}</div>
+          <div class="pace-chart-wrap">${paceBooksChartHtml12}</div>
         </div>
         <div class="pace-chart-row">
           <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
-          <div class="pace-chart-wrap">${pacePagesChartHtml}</div>
+          <div class="pace-chart-wrap">${pacePagesChartHtml12}</div>
+        </div>
+      </div>
+      <div class="pace-charts" data-pace-range="24">
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">권수<small>단위: 권</small></span>
+          <div class="pace-chart-wrap">${paceBooksChartHtml24}</div>
+        </div>
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
+          <div class="pace-chart-wrap">${pacePagesChartHtml24}</div>
         </div>
       </div>
       <div class="pace-charts" data-pace-range="all" hidden>
@@ -1249,7 +1266,8 @@ ${yearShelvesHtml}
           <div class="pace-chart-wrap">${pacePagesYearlyHtml}</div>
         </div>
       </div>
-      ${missingPagesTotal > 0 ? `<div class="stats-card-note" data-pace-range="recent">※ 페이지수 미확인 ${missingPagesTotal}권은 페이지수 집계에서 제외</div>` : ''}
+      ${missingPagesTotal12 > 0 ? `<div class="stats-card-note" data-pace-range="12" hidden>※ 페이지수 미확인 ${missingPagesTotal12}권은 페이지수 집계에서 제외</div>` : ''}
+      ${missingPagesTotal24 > 0 ? `<div class="stats-card-note" data-pace-range="24">※ 페이지수 미확인 ${missingPagesTotal24}권은 페이지수 집계에서 제외</div>` : ''}
       ${missingPagesTotalAll > 0 ? `<div class="stats-card-note" data-pace-range="all" hidden>※ 페이지수 미확인 ${missingPagesTotalAll}권은 페이지수 집계에서 제외</div>` : ''}
     </div>
     ${categoryShareChartHtml ? `<div class="stats-card">
