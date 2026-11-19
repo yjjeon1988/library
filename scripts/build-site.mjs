@@ -131,10 +131,10 @@ ${booksHtml}
 }
 
 // 월별 막대 차트(완독 권수 / 페이지수 공용). SVG <title> 로 호버 시 값을 보여준다(JS 불필요).
-function renderMonthlyBarChart(months, getValue, formatValue, barColor) {
+function renderMonthlyBarChart(months, getValue, formatValue, barColor, opts = {}) {
   const values = months.map(getValue);
   const maxVal = Math.max(1, ...values);
-  const barW = 26, gap = 14, colW = barW + gap;
+  const barW = opts.barW ?? 26, gap = opts.gap ?? 14, colW = barW + gap;
   const padLeft = 24, padRight = 10, padTop = 22, padBottom = 18;
   const chartH = 110;
   const width = months.length * colW - gap + padLeft + padRight;
@@ -283,6 +283,23 @@ ${allBooksSorted.map(renderBook).join('\n')}
   });
   const missingPagesTotal = paceMonths.reduce((s, m) => s + m.missingPages, 0);
 
+  // ---- 독서 페이스(전체 기간, 연도별 집계) ----
+  const paceYearsAll = yearEntries.filter(([y]) => y !== '미기록').map(([y]) => y).sort();
+  const paceByYearAll = {};
+  paceYearsAll.forEach((y) => { paceByYearAll[y] = { books: 0, pages: 0, missingPages: 0 }; });
+  for (const b of books) {
+    const d = parseDateInfo(b['완독일']);
+    if (!d) continue;
+    const y = String(d.year);
+    if (!(y in paceByYearAll)) continue;
+    const pages = YES24[bookKey(b)]?.pages;
+    paceByYearAll[y].books += 1;
+    if (typeof pages === 'number' && pages > 0) paceByYearAll[y].pages += pages;
+    else paceByYearAll[y].missingPages += 1;
+  }
+  const paceYearsData = paceYearsAll.map((y) => ({ ym: y, label: y, ...paceByYearAll[y] }));
+  const missingPagesTotalAll = paceYearsData.reduce((s, y) => s + y.missingPages, 0);
+
   // ---- 연도별 카테고리 비중 ----
   const shareYears = yearEntries.filter(([y]) => y !== '미기록').map(([y]) => y).sort();
   const shareByYear = {};
@@ -312,6 +329,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
 
   const paceBooksChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.books, (v) => `${v}`, '#7fa9d6');
   const pacePagesChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
+  const paceBooksYearlyHtml = renderMonthlyBarChart(paceYearsData, (y) => y.books, (v) => `${v}`, '#7fa9d6', { barW: 70, gap: 40 });
+  const pacePagesYearlyHtml = renderMonthlyBarChart(paceYearsData, (y) => y.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c', { barW: 70, gap: 40 });
   const categoryShareChartHtml = shareYears.length >= 2
     ? renderCategoryShareChart(shareYears, shareByYear, catColor)
     : '';
@@ -627,6 +646,38 @@ ${allBooksSorted.map(renderBook).join('\n')}
     text-transform: uppercase;
     margin-bottom: 12px;
   }
+  .stats-card-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .stats-card-head-row .stats-card-title { margin-bottom: 0; }
+  .pace-range-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 2px;
+  }
+  .pace-range-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 13px;
+    padding: 5px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .pace-range-toggle button:hover { color: var(--text-primary); }
+  .pace-range-toggle button.active { background: var(--text-primary); color: var(--bg-deep); }
   .stats-card-note {
     font-size: 11px;
     color: var(--text-dim);
@@ -634,6 +685,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
     margin-top: 8px;
   }
   .pace-charts { display: flex; flex-direction: column; gap: 14px; }
+  .pace-charts[hidden] { display: none; }
   .pace-chart-row { display: flex; align-items: center; gap: 10px; }
   .pace-chart-label {
     font-size: 11.5px; color: var(--text-muted); width: 64px; flex-shrink: 0;
@@ -1170,8 +1222,14 @@ ${yearShelvesHtml}
 
   <main class="stats-panel" id="view-stats">
     <div class="stats-card stats-card--wide">
-      <div class="stats-card-title">독서 페이스 (최근 24개월)</div>
-      <div class="pace-charts">
+      <div class="stats-card-head-row">
+        <div class="stats-card-title">독서 페이스</div>
+        <div class="pace-range-toggle" role="tablist">
+          <button type="button" data-pace-range="recent" class="active" role="tab" aria-selected="true">최근 24개월</button>
+          <button type="button" data-pace-range="all" role="tab" aria-selected="false">연도별 전체</button>
+        </div>
+      </div>
+      <div class="pace-charts" data-pace-range="recent">
         <div class="pace-chart-row">
           <span class="pace-chart-label">권수<small>단위: 권</small></span>
           <div class="pace-chart-wrap">${paceBooksChartHtml}</div>
@@ -1181,7 +1239,18 @@ ${yearShelvesHtml}
           <div class="pace-chart-wrap">${pacePagesChartHtml}</div>
         </div>
       </div>
-      ${missingPagesTotal > 0 ? `<div class="stats-card-note">※ 페이지수 미확인 ${missingPagesTotal}권은 페이지수 집계에서 제외</div>` : ''}
+      <div class="pace-charts" data-pace-range="all" hidden>
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">권수<small>단위: 권</small></span>
+          <div class="pace-chart-wrap">${paceBooksYearlyHtml}</div>
+        </div>
+        <div class="pace-chart-row">
+          <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
+          <div class="pace-chart-wrap">${pacePagesYearlyHtml}</div>
+        </div>
+      </div>
+      ${missingPagesTotal > 0 ? `<div class="stats-card-note" data-pace-range="recent">※ 페이지수 미확인 ${missingPagesTotal}권은 페이지수 집계에서 제외</div>` : ''}
+      ${missingPagesTotalAll > 0 ? `<div class="stats-card-note" data-pace-range="all" hidden>※ 페이지수 미확인 ${missingPagesTotalAll}권은 페이지수 집계에서 제외</div>` : ''}
     </div>
     ${categoryShareChartHtml ? `<div class="stats-card">
       <div class="stats-card-title">연도별 관심사 변화</div>
@@ -1343,6 +1412,21 @@ ${yearShelvesHtml}
         hoverRect.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
       });
     })();
+
+    // ============ 독서 페이스: 최근 24개월 ↔ 연도별 전체 ============
+    document.querySelectorAll('.pace-range-toggle button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const range = btn.dataset.paceRange;
+        document.querySelectorAll('.pace-range-toggle button').forEach(b => {
+          const active = b.dataset.paceRange === range;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-selected', active);
+        });
+        document.querySelectorAll('.pace-charts[data-pace-range], .stats-card-note[data-pace-range]').forEach(el => {
+          el.hidden = el.dataset.paceRange !== range;
+        });
+      });
+    });
 
     // View toggle
     document.querySelectorAll('.view-toggle button').forEach(btn => {
