@@ -352,8 +352,17 @@ ${allBooksSorted.map(renderBook).join('\n')}
       .sort((a, b) => b[1] - a[1])
       .map(([cat, n]) => ({ cat, color: catColor[cat], count: n, pct: total > 0 ? Math.round((n / total) * 100) : 0 }));
   });
-  const authorTopHtml = authorTop.map(([author, n]) =>
-    `<div class="author-chip"><span class="author-name">${escapeHtml(author)}</span><span class="author-count">${n}권</span></div>`
+  // 같은 권수끼리 묶어서 "N권 : 이름1, 이름2" 형태로 보여준다 (그룹 내 이름은 가나다순).
+  const authorGroupsMap = new Map();
+  authorTop.forEach(([author, n]) => {
+    if (!authorGroupsMap.has(n)) authorGroupsMap.set(n, []);
+    authorGroupsMap.get(n).push(author);
+  });
+  const authorGroups = [...authorGroupsMap.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([n, names]) => [n, names.sort((a, b) => a.localeCompare(b, 'ko'))]);
+  const authorTopHtml = authorGroups.map(([n, names]) =>
+    `<div class="author-group-row"><span class="author-group-count">${n}권</span><span class="author-group-names">${names.map(escapeHtml).join(', ')}</span></div>`
   ).join('');
   const categoryShelvesHtml = categoryEntries.map(([cat, bs]) => {
     const booksHtml = bs.map(renderBook).join('\n');
@@ -730,14 +739,13 @@ ${allBooksSorted.map(renderBook).join('\n')}
   .mini-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; }
   .mini-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
   .mini-legend-item .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-  .author-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .author-chip {
-    display: inline-flex; align-items: baseline; gap: 6px;
-    padding: 6px 11px; border-radius: 999px;
-    background: rgba(201, 168, 118, 0.1); border: 1px solid var(--line);
+  .author-groups { display: flex; flex-direction: column; gap: 9px; }
+  .author-group-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; line-height: 1.5; }
+  .author-group-count {
+    flex-shrink: 0; min-width: 30px;
+    color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums;
   }
-  .author-name { font-size: 12.5px; color: var(--text-primary); font-weight: 600; }
-  .author-count { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .author-group-names { color: var(--text-muted); }
 
   /* ============ SHELVES ============ */
   .shelves {
@@ -1280,7 +1288,7 @@ ${yearShelvesHtml}
     </div>` : ''}
     ${authorTopHtml ? `<div class="stats-card">
       <div class="stats-card-title">가장 많이 읽은 저자</div>
-      <div class="author-chip-grid">${authorTopHtml}</div>
+      <div class="author-groups">${authorTopHtml}</div>
     </div>` : ''}
   </main>
 
