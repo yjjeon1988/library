@@ -146,7 +146,7 @@ function renderMonthlyBarChart(months, getValue, formatValue, barColor, opts = {
     const x = padLeft + idx * colW;
     const y = padTop + chartH - h;
     const isLast = idx === months.length - 1;
-    const title = `${m.label} · ${formatValue(v)}`;
+    const title = `${m.label} · ${formatValue(v)}${m.months ? ` (${m.months}개월 기준)` : ''}`;
     return `<g>
         <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="${barColor}" opacity="${isLast ? 1 : 0.62}"><title>${escapeHtml(title)}</title></rect>
         ${v > 0 ? `<text x="${x + barW / 2}" y="${y - 6}" text-anchor="middle" font-size="10" fill="var(--text-dim)">${escapeHtml(formatValue(v))}</text>` : ''}
@@ -304,6 +304,18 @@ ${allBooksSorted.map(renderBook).join('\n')}
   const paceYearsData = paceYearsAll.map((y) => ({ ym: y, label: y, ...paceByYearAll[y] }));
   const missingPagesTotalAll = paceYearsData.reduce((s, y) => s + y.missingPages, 0);
 
+  // 올해(진행 중인 연도)는 아직 12개월이 다 안 찼으므로, 합계만 보면 과거 연도보다 낮아 보이는 착시가 생긴다.
+  // 월평균(합계 ÷ 지난 개월수)으로 보면 공정하게 비교할 수 있다.
+  const curYear = String(now.getFullYear());
+  const curMonthNum = now.getMonth() + 1;
+  const monthsElapsedFor = (y) => (String(y) === curYear ? curMonthNum : 12);
+  const paceYearsAvgData = paceYearsData.map((y) => {
+    const months = monthsElapsedFor(y.ym);
+    return { ...y, months, books: Math.round((y.books / months) * 10) / 10, pages: Math.round((y.pages / months) * 10) / 10 };
+  });
+  const partialYearNote = curMonthNum < 12 && paceYearsAll.some((y) => String(y) === curYear)
+    ? `${curYear}년은 아직 ${curMonthNum}개월치라 월평균으로 환산했어요.` : '';
+
   // ---- 연도별 카테고리 비중 ----
   const shareYears = yearEntries.filter(([y]) => y !== '미기록').map(([y]) => y).sort();
   const shareByYear = {};
@@ -396,6 +408,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
   const pacePagesChartHtml12 = renderMonthlyBarChart(paceMonths12, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
   const paceBooksYearlyHtml = renderMonthlyBarChart(paceYearsData, (y) => y.books, (v) => `${v}`, '#7fa9d6', { barW: 70, gap: 40 });
   const pacePagesYearlyHtml = renderMonthlyBarChart(paceYearsData, (y) => y.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c', { barW: 70, gap: 40 });
+  const paceBooksYearlyAvgHtml = renderMonthlyBarChart(paceYearsAvgData, (y) => y.books, (v) => `${v}`, '#7fa9d6', { barW: 70, gap: 40 });
+  const pacePagesYearlyAvgHtml = renderMonthlyBarChart(paceYearsAvgData, (y) => y.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c', { barW: 70, gap: 40 });
   const categoryShareChartHtml = shareYears.length >= 2
     ? renderCategoryShareChart(shareYears, shareByYear, catColor)
     : '';
@@ -729,7 +743,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
     margin-bottom: 12px;
   }
   .stats-card-head-row .stats-card-title { margin-bottom: 0; }
-  .pace-range-toggle {
+  .pace-range-toggle, .pace-metric-toggle {
     display: flex;
     gap: 2px;
     background: rgba(0,0,0,0.3);
@@ -737,7 +751,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
     border-radius: 16px;
     padding: 2px;
   }
-  .pace-range-toggle button {
+  .pace-metric-toggle { margin-bottom: 12px; }
+  .pace-range-toggle button, .pace-metric-toggle button {
     border: none;
     background: transparent;
     color: var(--text-muted);
@@ -750,8 +765,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
     white-space: nowrap;
     transition: background 0.15s ease, color 0.15s ease;
   }
-  .pace-range-toggle button:hover { color: var(--text-primary); }
-  .pace-range-toggle button.active { background: var(--text-primary); color: var(--bg-deep); }
+  .pace-range-toggle button:hover, .pace-metric-toggle button:hover { color: var(--text-primary); }
+  .pace-range-toggle button.active, .pace-metric-toggle button.active { background: var(--text-primary); color: var(--bg-deep); }
   .stats-card-note {
     font-size: 11px;
     color: var(--text-dim);
@@ -759,7 +774,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
     margin-top: 8px;
   }
   .pace-charts { display: flex; flex-direction: column; gap: 14px; }
-  .pace-charts[hidden] { display: none; }
+  .pace-metric-group { display: flex; flex-direction: column; gap: 14px; }
+  .pace-charts[hidden], .pace-metric-group[hidden] { display: none; }
   .pace-chart-row { display: flex; align-items: center; gap: 10px; }
   .pace-chart-label {
     font-size: 11.5px; color: var(--text-muted); width: 64px; flex-shrink: 0;
@@ -1293,7 +1309,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
   </header>
 
   <section class="hero">
-    <h1>읽은 만큼 넓어지고, 사유한 만큼 깊어지다</h1>
+    <h1>읽은 만큼 넓어지고, 사유한 만큼 깊어진다</h1>
     <p class="hero-stats-line">${totalBooks}권 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
   </section>
 
@@ -1340,18 +1356,35 @@ ${yearShelvesHtml}
         </div>
       </div>
       <div class="pace-charts" data-pace-range="all" hidden>
-        <div class="pace-chart-row">
-          <span class="pace-chart-label">권수<small>(단위: 권)</small></span>
-          <div class="pace-chart-wrap">${paceBooksYearlyHtml}</div>
+        <div class="pace-metric-toggle" role="tablist">
+          <button type="button" data-pace-metric="total" class="active" role="tab" aria-selected="true">합계</button>
+          <button type="button" data-pace-metric="avg" role="tab" aria-selected="false">월평균</button>
         </div>
-        <div class="pace-chart-row">
-          <span class="pace-chart-label">쪽수<small>(단위: 천쪽)</small></span>
-          <div class="pace-chart-wrap">${pacePagesYearlyHtml}</div>
+        <div class="pace-metric-group" data-pace-metric="total">
+          <div class="pace-chart-row">
+            <span class="pace-chart-label">권수<small>(단위: 권)</small></span>
+            <div class="pace-chart-wrap">${paceBooksYearlyHtml}</div>
+          </div>
+          <div class="pace-chart-row">
+            <span class="pace-chart-label">쪽수<small>(단위: 천쪽)</small></span>
+            <div class="pace-chart-wrap">${pacePagesYearlyHtml}</div>
+          </div>
+        </div>
+        <div class="pace-metric-group" data-pace-metric="avg" hidden>
+          <div class="pace-chart-row">
+            <span class="pace-chart-label">권수<small>(단위: 월 권)</small></span>
+            <div class="pace-chart-wrap">${paceBooksYearlyAvgHtml}</div>
+          </div>
+          <div class="pace-chart-row">
+            <span class="pace-chart-label">쪽수<small>(단위: 월 천쪽)</small></span>
+            <div class="pace-chart-wrap">${pacePagesYearlyAvgHtml}</div>
+          </div>
         </div>
       </div>
       ${missingPagesTotal12 > 0 ? `<div class="stats-card-note" data-pace-range="12" hidden>※ 쪽수 미확인 ${missingPagesTotal12}권은 쪽수 집계에서 제외</div>` : ''}
       ${missingPagesTotal24 > 0 ? `<div class="stats-card-note" data-pace-range="24">※ 쪽수 미확인 ${missingPagesTotal24}권은 쪽수 집계에서 제외</div>` : ''}
       ${missingPagesTotalAll > 0 ? `<div class="stats-card-note" data-pace-range="all" hidden>※ 쪽수 미확인 ${missingPagesTotalAll}권은 쪽수 집계에서 제외</div>` : ''}
+      ${partialYearNote ? `<div class="stats-card-note" data-pace-range="all" data-pace-metric="avg" hidden>※ ${escapeHtml(partialYearNote)}</div>` : ''}
     </div>
     ${categoryShareChartHtml ? `<div class="stats-card">
       <div class="stats-card-title">연도별 관심사 변화</div>
@@ -1519,18 +1552,44 @@ ${yearShelvesHtml}
       });
     })();
 
-    // ============ 독서 페이스: 최근 24개월 ↔ 연도별 전체 ============
+    // ============ 독서 페이스: 기간(12/24개월/연도별) × 지표(합계/월평균) 토글 ============
+    // 두 토글이 같은 노트(예: "올해는 N개월치" 안내)를 동시에 제어할 수 있어서,
+    // 각자 따로 hidden을 덮어쓰지 않도록 현재 활성 상태를 모아 한 번에 반영한다.
+    function updatePaceVisibility() {
+      const rangeBtn = document.querySelector('.pace-range-toggle button.active');
+      const metricBtn = document.querySelector('.pace-metric-toggle button.active');
+      const range = rangeBtn ? rangeBtn.dataset.paceRange : null;
+      const metric = metricBtn ? metricBtn.dataset.paceMetric : 'total';
+      document.querySelectorAll('.pace-charts[data-pace-range]').forEach(el => {
+        el.hidden = el.dataset.paceRange !== range;
+      });
+      document.querySelectorAll('.pace-metric-group[data-pace-metric]').forEach(el => {
+        el.hidden = el.dataset.paceMetric !== metric;
+      });
+      document.querySelectorAll('.stats-card-note[data-pace-range]').forEach(el => {
+        const rangeOk = el.dataset.paceRange === range;
+        const metricOk = !el.dataset.paceMetric || el.dataset.paceMetric === metric;
+        el.hidden = !(rangeOk && metricOk);
+      });
+    }
     document.querySelectorAll('.pace-range-toggle button').forEach(btn => {
       btn.addEventListener('click', () => {
-        const range = btn.dataset.paceRange;
         document.querySelectorAll('.pace-range-toggle button').forEach(b => {
-          const active = b.dataset.paceRange === range;
+          const active = b === btn;
           b.classList.toggle('active', active);
           b.setAttribute('aria-selected', active);
         });
-        document.querySelectorAll('.pace-charts[data-pace-range], .stats-card-note[data-pace-range]').forEach(el => {
-          el.hidden = el.dataset.paceRange !== range;
+        updatePaceVisibility();
+      });
+    });
+    document.querySelectorAll('.pace-metric-toggle button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pace-metric-toggle button').forEach(b => {
+          const active = b === btn;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-selected', active);
         });
+        updatePaceVisibility();
       });
     });
 
