@@ -445,95 +445,30 @@ ${allBooksSorted.map(renderBook).join('\n')}
 
   /* ============ HERO ============ */
   .hero {
-    padding: 96px 32px 48px;
+    padding: 56px 32px 40px;
     max-width: 1200px;
     margin: 0 auto;
     text-align: center;
   }
   .hero h1 {
     font-family: 'Nanum Myeongjo', serif;
-    font-size: 56px;
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    color: var(--text-primary);
-    margin-bottom: 14px;
-    line-height: 1.1;
-  }
-  .hero p {
-    color: var(--text-muted);
-    font-size: 15px;
-    letter-spacing: 0.01em;
-  }
-
-  .hero-stats {
-    display: inline-flex;
-    gap: 28px;
-    align-items: center;
-    margin-top: 40px;
-    font-family: 'Nanum Myeongjo', serif;
-  }
-  .stat-primary {
-    text-align: center;
-  }
-  .stat-primary .stat-num {
-    font-size: 56px;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1;
-    display: block;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
-  }
-  .stat-primary .stat-unit {
-    font-size: 26px;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin-left: 4px;
-    letter-spacing: 0;
-  }
-  .stat-primary .stat-label {
-    font-size: 11px;
-    color: var(--text-muted);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin-top: 14px;
-    display: block;
-    font-family: 'Noto Sans KR', sans-serif;
-    font-weight: 500;
-  }
-  .hero-divider {
-    width: 1px;
-    height: 48px;
-    background: rgba(201, 168, 118, 0.25);
-  }
-  .hero-secondary {
-    display: flex;
-    gap: 28px;
-  }
-  .stat-minor { text-align: center; }
-  .stat-minor .stat-num {
-    font-size: 26px;
+    font-size: 34px;
     font-weight: 700;
-    color: var(--text-primary);
-    display: block;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
+    color: var(--text-primary);
+    line-height: 1.35;
   }
-  .stat-minor .stat-unit {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    margin-left: 2px;
-  }
-  .stat-minor .stat-label {
-    font-size: 11px;
+  .hero-stats-line {
+    margin-top: 18px;
+    font-size: 13.5px;
     color: var(--text-dim);
-    letter-spacing: 0.1em;
-    margin-top: 10px;
-    display: block;
-    font-family: 'Noto Sans KR', sans-serif;
-    font-weight: 400;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-stats-line strong {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 15px;
   }
 
   /* ============ SHELVES ============ */
@@ -929,15 +864,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .brand { font-size: 16px; }
     .search-box { order: 2; width: 100%; margin-top: 2px; }
     .nav-wrap { order: 3; width: 100%; margin-top: 2px; }
-    .hero { padding: 56px 20px 28px; }
-    .hero h1 { font-size: 36px; }
-    .hero-stats { gap: 20px; margin-top: 28px; }
-    .stat-primary .stat-num { font-size: 44px; }
-    .stat-primary .stat-unit { font-size: 20px; }
-    .stat-minor .stat-num { font-size: 22px; }
-    .stat-minor .stat-unit { font-size: 12px; }
-    .hero-divider { height: 40px; }
-    .hero-secondary { gap: 20px; }
+    .hero { padding: 40px 20px 24px; }
+    .hero h1 { font-size: 24px; }
+    .hero-stats-line { margin-top: 14px; font-size: 12.5px; }
+    .hero-stats-line strong { font-size: 13.5px; }
     .shelves { padding: 24px 16px 60px; }
     .shelf { margin-bottom: 56px; }
     .shelf-title { font-size: 22px; }
@@ -999,25 +929,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
   </header>
 
   <section class="hero">
-    <h1>독서리스트</h1>
-    <p>시대정신 및 철학사상 탐구 &amp; 나만의 가치 만들기</p>
-    <div class="hero-stats">
-      <div class="stat-primary">
-        <span class="stat-num">${totalBooks}<span class="stat-unit">권</span></span>
-        <span class="stat-label">완독</span>
-      </div>
-      <div class="hero-divider" aria-hidden="true"></div>
-      <div class="hero-secondary">
-        <div class="stat-minor">
-          <span class="stat-num">${categoryEntries.length}<span class="stat-unit">개</span></span>
-          <span class="stat-label">카테고리</span>
-        </div>
-        <div class="stat-minor">
-          <span class="stat-num">${yearEntries.filter(([y]) => y !== '미기록').length}<span class="stat-unit">개</span></span>
-          <span class="stat-label">연도</span>
-        </div>
-      </div>
-    </div>
+    <h1>읽은 만큼 넓어지고, 사유한 만큼 깊어지다</h1>
+    <p class="hero-stats-line"><strong>${totalBooks}권</strong> 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
   </section>
 
   <main class="shelves" id="view-all">
