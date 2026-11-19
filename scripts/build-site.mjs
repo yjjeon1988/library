@@ -134,8 +134,8 @@ ${booksHtml}
 function renderMonthlyBarChart(months, getValue, formatValue, barColor) {
   const values = months.map(getValue);
   const maxVal = Math.max(1, ...values);
-  const barW = 22, gap = 12, colW = barW + gap;
-  const padLeft = 2, padRight = 2, padTop = 22, padBottom = 18;
+  const barW = 26, gap = 14, colW = barW + gap;
+  const padLeft = 24, padRight = 10, padTop = 22, padBottom = 18;
   const chartH = 110;
   const width = months.length * colW - gap + padLeft + padRight;
   const totalH = chartH + padTop + padBottom;
@@ -188,24 +188,6 @@ function renderCategoryShareChart(years, shareByYear, catColor) {
   return `<svg viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" role="img" aria-label="연도별 카테고리 비중">
 ${bars}
     </svg>`;
-}
-
-// 피드는 한 줄 요약만 보여준다 — 핵심 인사이트 목록은 클릭 시 모달에서 전체를 본다(329권 전체가 각 3개씩이라
-// 목록까지 피드에 펼치면 한 화면에서 훑어본다는 목적과 어긋나게 페이지가 지나치게 길어진다).
-function renderInsightFeedCard(d, idx) {
-  const cover = d.cover || fallbackCoverSvg(d.title, d.author, idx);
-  const oneLineHtml = d.oneLine
-    ? `<p class="insight-feed-oneline">${escapeHtml(d.oneLine)}</p>` : '';
-  return `      <article class="insight-feed-card" role="button" tabindex="0" data-key="${escapeHtml(d.key)}" aria-label="${escapeHtml(d.title)} 상세 보기">
-        <div class="insight-feed-head">
-          <img class="insight-feed-cover" src="${escapeHtml(cover)}" alt="" width="52" height="78" loading="lazy" />
-          <div class="insight-feed-meta">
-            <div class="insight-feed-title">${escapeHtml(d.title)}</div>
-            <div class="insight-feed-author">${escapeHtml(d.author)}${d.date ? ' · ' + escapeHtml(d.date) : ''}</div>
-          </div>
-        </div>
-${oneLineHtml}
-      </article>`;
 }
 
 async function main() {
@@ -267,7 +249,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
       </div>
     </section>`;
 
-  // ---- 독서 페이스: 최근 12개월 완독 권수 / 페이지수 ----
+  // ---- 독서 페이스: 최근 24개월 완독 권수 / 페이지수 ----
+  const PACE_MONTH_COUNT = 24;
   const ymKey = (d) => `${d.year}-${String(d.month).padStart(2, '0')}`;
   const addMonthsYm = (ym, delta) => {
     let [y, m] = ym.split('-').map(Number);
@@ -278,10 +261,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
   };
   const now = new Date();
   const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const last12 = Array.from({ length: 12 }, (_, i) => addMonthsYm(curYm, i - 11));
+  const paceYms = Array.from({ length: PACE_MONTH_COUNT }, (_, i) => addMonthsYm(curYm, i - (PACE_MONTH_COUNT - 1)));
 
   const paceByMonth = {};
-  last12.forEach((ym) => { paceByMonth[ym] = { books: 0, pages: 0, missingPages: 0 }; });
+  paceYms.forEach((ym) => { paceByMonth[ym] = { books: 0, pages: 0, missingPages: 0 }; });
   for (const b of books) {
     const d = parseDateInfo(b['완독일']);
     if (!d) continue;
@@ -292,7 +275,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
     if (typeof pages === 'number' && pages > 0) paceByMonth[ym].pages += pages;
     else paceByMonth[ym].missingPages += 1;
   }
-  const paceMonths = last12.map((ym, idx) => {
+  const paceMonths = paceYms.map((ym, idx) => {
     const [y, m] = ym.split('-');
     const monthLabel = `${Number(m)}월`;
     const label = idx === 0 ? `'${y.slice(2)} ${monthLabel}` : monthLabel;
@@ -327,18 +310,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
     .slice(0, 10);
 
-  // ---- 인사이트 모아보기 (책 제목과 무관하게 핵심 인사이트만 피드로) ----
-  const seenInsightKeys = new Set();
-  const insightFeedBooks = [];
-  for (const b of allBooksSorted) {
-    const key = bookKey(b);
-    if (seenInsightKeys.has(key)) continue;
-    const d = bookData[key];
-    if (!d || !(d.oneLine || (d.insights && d.insights.length))) continue;
-    seenInsightKeys.add(key);
-    insightFeedBooks.push({ key, ...d });
-  }
-
   const paceBooksChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.books, (v) => `${v}권`, '#7fa9d6');
   const pacePagesChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.pages, (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}천` : `${v}`, '#e0b15c');
   const categoryShareChartHtml = shareYears.length >= 2
@@ -359,8 +330,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
   const authorTopHtml = authorTop.map(([author, n]) =>
     `<div class="author-chip"><span class="author-name">${escapeHtml(author)}</span><span class="author-count">${n}권</span></div>`
   ).join('');
-  const insightFeedHtml = insightFeedBooks.map((d, idx) => renderInsightFeedCard(d, idx)).join('\n');
-
   const categoryShelvesHtml = categoryEntries.map(([cat, bs]) => {
     const booksHtml = bs.map(renderBook).join('\n');
     return renderShelf(`cat-${encodeURIComponent(cat)}`, cat, bs.length, booksHtml);
@@ -668,10 +637,10 @@ ${allBooksSorted.map(renderBook).join('\n')}
   .pace-chart-row { display: flex; align-items: center; gap: 10px; }
   .pace-chart-label { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; width: 54px; flex-shrink: 0; }
   .pace-chart-wrap { overflow-x: auto; flex: 1; min-width: 0; }
-  .pace-chart-wrap svg, .category-share-wrap svg { display: block; width: 100%; height: auto; }
-  /* 와이드 카드에서 100% 폭으로 늘어나면 글자까지 같이 커지므로, 자연 크기의 ~1.2배 선에서 더 이상 확대되지 않게 막는다. */
-  .pace-chart-wrap svg { max-width: 480px; }
-  .category-share-wrap svg { max-width: 260px; }
+  /* 자연 크기(24개월 기준 ~980px)로 그대로 둔다 — 100% 폭으로 늘리면 넓은 카드에선 글자가 커지고
+     좁은 화면에선 반대로 글자가 으스러지므로, 대신 좁은 화면에서는 가로 스크롤로 보여준다. */
+  .pace-chart-wrap svg { display: block; }
+  .category-share-wrap svg { display: block; width: 100%; height: auto; max-width: 260px; }
   .stats-chart-wrap { position: relative; max-width: 320px; }
   .category-share-wrap { overflow-x: auto; }
   .chart-tooltip {
@@ -708,45 +677,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
   .author-name { font-size: 12.5px; color: var(--text-primary); font-weight: 600; }
   .author-count { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
-  /* ============ 인사이트 모아보기 ============ */
-  .insight-feed-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 18px;
-  }
-  .insight-feed-card {
-    min-width: 0;
-    cursor: pointer;
-    background: var(--bg-card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 16px 18px;
-    transition: border-color 0.2s ease;
-  }
-  .insight-feed-card:hover { border-color: var(--line-strong); }
-  .insight-feed-head { display: flex; gap: 12px; align-items: center; }
-  .insight-feed-cover {
-    width: 40px; aspect-ratio: 2/3; object-fit: cover; border-radius: 2px;
-    background: var(--bg-deep); flex-shrink: 0;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-  }
-  .insight-feed-meta { min-width: 0; }
-  .insight-feed-title {
-    font-size: 13.5px; font-weight: 600; color: var(--text-primary);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .insight-feed-author { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
-  .insight-feed-oneline {
-    font-family: 'Nanum Myeongjo', serif;
-    font-size: 14.5px;
-    line-height: 1.5;
-    color: var(--text-primary);
-    margin-top: 12px;
-    padding: 10px 12px;
-    background: rgba(127,211,155,0.08);
-    border-left: 3px solid #7fd39b;
-    border-radius: 0 6px 6px 0;
-  }
   /* ============ SHELVES ============ */
   .shelves {
     max-width: 1400px;
@@ -884,17 +814,16 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
 
   /* ============ VIEW SWITCHING ============ */
-  #view-all, #view-category, #view-year, #view-insights, #view-stats { display: none; }
+  #view-all, #view-category, #view-year, #view-stats { display: none; }
   body[data-view="all"] #view-all { display: block; }
   body[data-view="category"] #view-category { display: block; }
   body[data-view="year"] #view-year { display: block; }
-  body[data-view="insights"] #view-insights { display: block; }
   body[data-view="stats"] #view-stats { display: grid; }
   #nav-category, #nav-year { display: none; }
   body[data-view="category"] #nav-category { display: flex; }
   body[data-view="year"] #nav-year { display: flex; }
-  /* 전체/인사이트/통계 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
-  body[data-view="all"] .nav-wrap, body[data-view="insights"] .nav-wrap, body[data-view="stats"] .nav-wrap { display: none; }
+  /* 전체/통계 뷰는 섹션 구분이 없어 사이드 내비를 숨긴다 */
+  body[data-view="all"] .nav-wrap, body[data-view="stats"] .nav-wrap { display: none; }
 
   /* ============ BACK TO TOP ============ */
   .back-to-top {
@@ -1155,7 +1084,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .hero h1 { font-size: 24px; }
     .hero-stats-line { margin-top: 14px; font-size: 12.5px; }
     .stats-panel { padding: 24px 16px 60px; gap: 14px; }
-    .insight-feed-grid { grid-template-columns: 1fr; }
     .shelves { padding: 24px 16px 60px; }
     .shelf { margin-bottom: 56px; }
     .shelf-title { font-size: 22px; }
@@ -1203,10 +1131,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             통계
           </button>
-          <button data-view="insights" role="tab" aria-selected="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            인사이트
-          </button>
         </div>
       </div>
       <div class="search-box" id="searchBox">
@@ -1240,15 +1164,9 @@ ${categoryShelvesHtml}
 ${yearShelvesHtml}
   </main>
 
-  <main class="shelves" id="view-insights">
-    <div class="insight-feed-grid">
-${insightFeedHtml}
-    </div>
-  </main>
-
   <main class="stats-panel" id="view-stats">
     <div class="stats-card stats-card--wide">
-      <div class="stats-card-title">독서 페이스 (최근 12개월)</div>
+      <div class="stats-card-title">독서 페이스 (최근 24개월)</div>
       <div class="pace-charts">
         <div class="pace-chart-row">
           <span class="pace-chart-label">권수</span>
@@ -1386,13 +1304,13 @@ ${insightFeedHtml}
       }
 
       document.addEventListener('click', (e) => {
-        const card = e.target.closest('.book, .insight-feed-card');
+        const card = e.target.closest('.book');
         if (card && card.dataset.key) { open(card.dataset.key); return; }
         if (e.target === backdrop || e.target.closest('#modalClose')) close();
       });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !backdrop.hidden) close();
-        const card = e.target.closest && e.target.closest('.book, .insight-feed-card');
+        const card = e.target.closest && e.target.closest('.book');
         if (card && card.dataset.key && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault(); open(card.dataset.key);
         }
@@ -1447,7 +1365,7 @@ ${insightFeedHtml}
     const allBooks = Array.from(document.querySelectorAll('.book'));
 
     function updateSearchEmpty() {
-      if (document.body.dataset.view === 'insights' || document.body.dataset.view === 'stats') { searchEmpty.classList.remove('visible'); return; }
+      if (document.body.dataset.view === 'stats') { searchEmpty.classList.remove('visible'); return; }
       const activeMain = document.getElementById('view-' + document.body.dataset.view);
       const hasVisible = !!activeMain.querySelector('.book:not(.book-hide)');
       const q = searchInput.value.trim();
@@ -1497,7 +1415,7 @@ ${insightFeedHtml}
         if (!entry.isIntersecting) continue;
         const id = entry.target.id;
         const activeView = document.body.dataset.view;
-        if (activeView === 'all' || activeView === 'insights' || activeView === 'stats') continue;
+        if (activeView === 'all' || activeView === 'stats') continue;
         const scope = activeView === 'category' ? '#nav-category' : '#nav-year';
         const container = document.querySelector(scope);
         if (!container) continue;
