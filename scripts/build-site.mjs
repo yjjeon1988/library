@@ -289,13 +289,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     gap: 9px;
     flex-shrink: 0;
   }
-  .view-switch-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
   .view-toggle {
     display: flex;
     gap: 2px;
@@ -464,11 +457,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     color: var(--text-dim);
     letter-spacing: 0.01em;
     font-variant-numeric: tabular-nums;
-  }
-  .hero-stats-line strong {
-    color: var(--text-primary);
-    font-weight: 700;
-    font-size: 15px;
   }
 
   /* ============ SHELVES ============ */
@@ -867,7 +855,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .hero { padding: 40px 20px 24px; }
     .hero h1 { font-size: 24px; }
     .hero-stats-line { margin-top: 14px; font-size: 12.5px; }
-    .hero-stats-line strong { font-size: 13.5px; }
     .shelves { padding: 24px 16px 60px; }
     .shelf { margin-bottom: 56px; }
     .shelf-title { font-size: 22px; }
@@ -898,7 +885,6 @@ ${allBooksSorted.map(renderBook).join('\n')}
     <div class="topbar-inner">
       <div class="brand">📚 나의 서재</div>
       <div class="view-switch">
-        <span class="view-switch-label">보기</span>
         <div class="view-toggle" role="tablist">
           <button data-view="all" class="active" role="tab" aria-selected="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -930,7 +916,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
 
   <section class="hero">
     <h1>읽은 만큼 넓어지고, 사유한 만큼 깊어지다</h1>
-    <p class="hero-stats-line"><strong>${totalBooks}권</strong> 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
+    <p class="hero-stats-line">${totalBooks}권 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
   </section>
 
   <main class="shelves" id="view-all">
