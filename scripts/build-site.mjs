@@ -1366,11 +1366,11 @@ ${yearShelvesHtml}
       </div>
       <div class="pace-charts" data-pace-range="yearly-avg" hidden>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">권수<small>(단위: 월 권)</small></span>
+          <span class="pace-chart-label">권수<small>(단위: 권)</small></span>
           <div class="pace-chart-wrap">${paceBooksYearlyAvgHtml}</div>
         </div>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">쪽수<small>(단위: 월 천쪽)</small></span>
+          <span class="pace-chart-label">쪽수<small>(단위: 천쪽)</small></span>
           <div class="pace-chart-wrap">${pacePagesYearlyAvgHtml}</div>
         </div>
       </div>
