@@ -277,8 +277,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
   const paceMonths = paceYms.map((ym, idx) => {
     const [y, m] = ym.split('-');
-    const monthLabel = `${Number(m)}월`;
-    const label = idx === 0 ? `'${y.slice(2)} ${monthLabel}` : monthLabel;
+    const monthNum = Number(m);
+    const label = (idx === 0 || monthNum === 1) ? `'${y.slice(2)} ${monthNum}` : `${monthNum}`;
     return { ym, label, ...paceByMonth[ym] };
   });
   const missingPagesTotal = paceMonths.reduce((s, m) => s + m.missingPages, 0);
@@ -310,8 +310,8 @@ ${allBooksSorted.map(renderBook).join('\n')}
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
     .slice(0, 10);
 
-  const paceBooksChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.books, (v) => `${v}권`, '#7fa9d6');
-  const pacePagesChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.pages, (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}천` : `${v}`, '#e0b15c');
+  const paceBooksChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.books, (v) => `${v}`, '#7fa9d6');
+  const pacePagesChartHtml = renderMonthlyBarChart(paceMonths, (m) => m.pages, (v) => `${(v / 1000).toFixed(1)}`, '#e0b15c');
   const categoryShareChartHtml = shareYears.length >= 2
     ? renderCategoryShareChart(shareYears, shareByYear, catColor)
     : '';
@@ -635,7 +635,11 @@ ${allBooksSorted.map(renderBook).join('\n')}
   }
   .pace-charts { display: flex; flex-direction: column; gap: 14px; }
   .pace-chart-row { display: flex; align-items: center; gap: 10px; }
-  .pace-chart-label { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; width: 54px; flex-shrink: 0; }
+  .pace-chart-label {
+    font-size: 11.5px; color: var(--text-muted); width: 64px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .pace-chart-label small { font-size: 9.5px; color: var(--text-dim); }
   .pace-chart-wrap { overflow-x: auto; flex: 1; min-width: 0; }
   /* 자연 크기(24개월 기준 ~980px)로 그대로 둔다 — 100% 폭으로 늘리면 넓은 카드에선 글자가 커지고
      좁은 화면에선 반대로 글자가 으스러지므로, 대신 좁은 화면에서는 가로 스크롤로 보여준다. */
@@ -1169,11 +1173,11 @@ ${yearShelvesHtml}
       <div class="stats-card-title">독서 페이스 (최근 24개월)</div>
       <div class="pace-charts">
         <div class="pace-chart-row">
-          <span class="pace-chart-label">권수</span>
+          <span class="pace-chart-label">권수<small>단위: 권</small></span>
           <div class="pace-chart-wrap">${paceBooksChartHtml}</div>
         </div>
         <div class="pace-chart-row">
-          <span class="pace-chart-label">페이지수</span>
+          <span class="pace-chart-label">페이지수<small>단위: 천</small></span>
           <div class="pace-chart-wrap">${pacePagesChartHtml}</div>
         </div>
       </div>
