@@ -92,7 +92,7 @@ async function main() {
 
   const rows = pages.map((p) => ({
     완독일: formatDateKorean(extractProperty(p, '완독일')),
-    구분: extractProperty(p, '구분'),
+    분류: extractProperty(p, '분류') || extractProperty(p, '구분'),
     도서제목: extractProperty(p, '도서제목'),
     저자: extractProperty(p, '저자'),
     출판사: extractProperty(p, '출판사'),
@@ -106,7 +106,7 @@ async function main() {
   };
   rows.sort((a, b) => tsOf(b.완독일) - tsOf(a.완독일));
 
-  const headers = ['완독일', '구분', '도서제목', '저자', '출판사', '링크'];
+  const headers = ['완독일', '분류', '도서제목', '저자', '출판사', '링크'];
   const csv = [
     headers.join(','),
     ...rows.map((r) => headers.map((h) => csvEscape(r[h])).join(',')),

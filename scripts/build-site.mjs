@@ -100,7 +100,7 @@ function buildBookData(books) {
     const rating = y.rating?.score ?? null;
     data[key] = {
       title, author,
-      category: b['구분'] || b['Category'] || '',
+      category: b['분류'] || b['구분'] || b['Category'] || '',
       date: date ? `${date.year}.${String(date.month).padStart(2, '0')}.${String(date.day).padStart(2, '0')}` : '',
       cover: pid ? `covers/${pid}.jpg` : '',
       rating: rating ?? null,
@@ -185,7 +185,7 @@ function renderCategoryShareChart(years, shareByYear, catColor) {
     return `${segs}${yearLabel}${hover}`;
   }).join('\n');
 
-  return `<svg viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" role="img" aria-label="연도별 카테고리 비중">
+  return `<svg viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" role="img" aria-label="연도별 분류 비중">
 ${bars}
     </svg>`;
 }
@@ -210,7 +210,7 @@ async function main() {
 
   const byCategory = new Map();
   for (const b of books) {
-    const cat = normalizeCategory(b['구분'] || b['Category'] || '기타');
+    const cat = normalizeCategory(b['분류'] || b['구분'] || b['Category'] || '기타');
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat).push(b);
   }
@@ -325,7 +325,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
     if (!d) continue;
     const y = String(d.year);
     if (!(y in shareByYear)) continue;
-    const cat = normalizeCategory(b['구분'] || b['Category'] || '기타');
+    const cat = normalizeCategory(b['분류'] || b['구분'] || b['Category'] || '기타');
     shareByYear[y][cat] = (shareByYear[y][cat] || 0) + 1;
   }
   const catColor = {};
@@ -446,7 +446,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
     const booksHtml = bs.map(renderBook).join('\n');
     const label = yr === '미기록' ? '완독일 미기록' : `${yr}년`;
     const catCount = {};
-    for (const b of bs) { const c = normalizeCategory(b['구분'] || '기타'); catCount[c] = (catCount[c] || 0) + 1; }
+    for (const b of bs) { const c = normalizeCategory(b['분류'] || b['구분'] || '기타'); catCount[c] = (catCount[c] || 0) + 1; }
     const topCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, n]) => `${c} ${n}`).join(' · ');
     return renderShelf(`yr-${yr}`, label, bs.length, booksHtml, topCats);
   }).join('\n\n');
@@ -1280,7 +1280,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
           </button>
           <button data-view="category" role="tab" aria-selected="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-            카테고리
+            분류
           </button>
           <button data-view="year" role="tab" aria-selected="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1294,7 +1294,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
       </div>
       <div class="search-box" id="searchBox">
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="search" id="searchInput" placeholder="제목, 저자 검색" aria-label="도서 검색 (제목, 저자, 카테고리)" autocomplete="off" />
+        <input type="search" id="searchInput" placeholder="제목, 저자 검색" aria-label="도서 검색 (제목, 저자, 분류)" autocomplete="off" />
         <button class="search-clear" id="searchClear" type="button" aria-label="검색어 지우기">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
@@ -1308,7 +1308,7 @@ ${allBooksSorted.map(renderBook).join('\n')}
 
   <section class="hero">
     <h1>읽은 만큼 넓어지고, 사유한 만큼 깊어진다</h1>
-    <p class="hero-stats-line">${totalBooks}권 완독 · ${categoryEntries.length}개 카테고리 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
+    <p class="hero-stats-line">${totalBooks}권 완독 · ${categoryEntries.length}개 분류 · ${yearEntries.filter(([y]) => y !== '미기록').length}개 연도</p>
   </section>
 
   <main class="shelves" id="view-all">
@@ -1744,7 +1744,7 @@ ${yearShelvesHtml}
 
   await fs.writeFile(path.join(DIST_DIR, 'index.html'), html, 'utf-8');
   console.log(`빌드 완료: ${path.join(DIST_DIR, 'index.html')}`);
-  console.log(`  ${totalBooks}권, ${categoryEntries.length}개 카테고리, ${yearEntries.length}개 연도 구간`);
+  console.log(`  ${totalBooks}권, ${categoryEntries.length}개 분류, ${yearEntries.length}개 연도 구간`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
