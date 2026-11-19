@@ -1362,7 +1362,7 @@ ${yearShelvesHtml}
       <div class="mini-legend">${categoryShareLegendHtml}</div>
     </div>` : ''}
     ${authorTopHtml ? `<div class="stats-card">
-      <div class="stats-card-title">가장 많이 읽은 저자</div>
+      <div class="stats-card-title">자주 읽은 저자</div>
       <div class="author-groups">${authorTopHtml}</div>
     </div>` : ''}
     ${keywordCloudHtml ? `<div class="stats-card stats-card--wide">
